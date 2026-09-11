@@ -1,4 +1,4 @@
-# 04 – API Contract Rules
+# 04 - API Contract Rules
 
 ## Scope
 
@@ -147,7 +147,7 @@ Rules:
 * Use camelCase JSON property names.
 * Use UTC datetime values.
 * Do not send business context values that are resolved from token or trusted headers.
-* Do not send tenant or workspace values in body when they are available from `ICurrentUser`.
+* Do not send tenant or workspace values in body when they are available from `ICurrentUser` (chi ap dung khi du an co multi-tenant/workspace).
 
 ---
 
@@ -510,7 +510,7 @@ Rules:
 * Use simple query parameters for scalar filters.
 * Use indexed query parameters for array filters.
 * Use ISO 8601 UTC for date filters.
-* Do not expose tenant or workspace filters to standard client APIs when they are resolved from `ICurrentUser`.
+* Do not expose tenant or workspace filters to standard client APIs when they are resolved from `ICurrentUser` (chi ap dung khi du an co multi-tenant/workspace).
 
 ---
 
@@ -568,7 +568,7 @@ Do not omit `totalCount` from paged responses.
 
 Do not use `200 OK` for every successful response.
 
-Do not put tenant or workspace context in route path when it is resolved from `ICurrentUser`.
+Do not put tenant or workspace context in route path when it is resolved from `ICurrentUser` (chi ap dung khi du an co multi-tenant/workspace).
 
 Do not accept unlimited `pageSize`.
 
@@ -576,7 +576,7 @@ Do not use action names in REST resource routes.
 
 Do not use query parameter or header API versioning.
 
-Do not trust client-supplied tenant or workspace values.
+Do not trust client-supplied tenant or workspace values (chi ap dung khi du an co multi-tenant/workspace).
 
 Do not concatenate raw filter or sort values into SQL.
 

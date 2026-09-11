@@ -1,4 +1,4 @@
-# 03 – Security & Tenancy Rules
+# 03 - Security & Tenancy Rules
 
 ## Scope
 
@@ -8,7 +8,7 @@ This document defines security, authorization, tenant, workspace, and audit rule
 
 ## Current User Context
 
-Use `ICurrentUser` from `SmartOffice.BuildingBlock.Authentication` for authenticated user, tenant, and workspace context.
+Use `ICurrentUser` (abstraction trong Application, implement o Infrastructure) for authenticated user, tenant, and workspace context.
 
 `ICurrentUser` is implemented by `CurrentUser` / `CurrentUserBase`.
 
@@ -72,7 +72,7 @@ The reference implementation uses tenant and workspace context through `ICurrent
 
 The reference module does not apply mandatory tenant filtering to every entity.
 
-The reference module applies global soft-delete filtering through `BaseSmartOfficeDbContext`.
+The reference module applies global soft-delete filtering through base DbContext (vi du `BaseAppDbContext`).
 
 Tenant filtering is module-specific.
 
@@ -87,7 +87,7 @@ Rules:
 
 ## Global Query Filters
 
-`BaseSmartOfficeDbContext` applies soft-delete filtering.
+Base DbContext cua du an (vi du `BaseAppDbContext`) applies soft-delete filtering.
 
 Example:
 
@@ -280,10 +280,9 @@ Do not mix audit logs with technical logs.
 
 ## Related Components
 
-* `SmartOffice.BuildingBlock.Authentication.ICurrentUser`
-* `SmartOffice.BuildingBlock.Authentication.CurrentUser`
-* `SmartOffice.BuildingBlock.Authentication.CurrentUserBase`
-* `BaseSmartOfficeDbContext`
+* `ICurrentUser` (vi du `{Company}.Application.Abstractions.ICurrentUser` - thay bang namespace thuc te)
+* `CurrentUser` / `CurrentUserBase` (implement trong Infrastructure)
+* Base DbContext cua du an (vi du `BaseAppDbContext`)
 * `ConfigureEntityQueryFilter()`
 * `UpdateAuditableEntitiesInterceptor`
 * `[Authorize(Policy = "...")]`

@@ -1,17 +1,17 @@
-# 12 – Caching Strategy Rules
+# 12 - Caching Strategy Rules
 
 ---
 
 ## DO
 
-1. **Dùng caching từ Building Block**: `AddSmartOfficeCaching(configuration)` đăng ký `ICacheService` (và HybridCacheService nếu có). Impl dùng Redis/Valkey khi multi-instance.
+1. **Dùng caching tập trung**: `AddAppCaching  // tên thực tế do dự án đặt, ví dụ Add{ProjectName}Caching(configuration)` đăng ký `ICacheService` (và HybridCache nếu có). Impl dùng Redis/Valkey khi multi-instance hoặc `IMemoryCache` cho monolith single-instance.
    - Tránh `IMemoryCache` cho data cần consistent giữa instances.
 
-2. **Áp dụng Cache-Aside Pattern** — không bao giờ để cache là nguồn sự thật duy nhất:
+2. **Áp dụng Cache-Aside Pattern** - không bao giờ để cache là nguồn sự thật duy nhất:
 
    ```
    1. Đọc từ cache
-   2. Cache miss → đọc từ DB
+   2. Cache miss -> đọc từ DB
    3. Ghi vào cache với TTL
    4. Trả về data
    ```
@@ -20,10 +20,10 @@
 
    ```csharp
    var key = CacheKeys.Document(_tenantContext.TenantId, documentId);
-   // → "tenant:{tenantId}:doc:{documentId}"
+   // -> "tenant:{tenantId}:doc:{documentId}"
    ```
 
-4. **Luôn đặt TTL rõ ràng** — không bao giờ cache không có expiry:
+4. **Luôn đặt TTL rõ ràng** - không bao giờ cache không có expiry:
 
    ```csharp
    var options = new DistributedCacheEntryOptions
@@ -48,20 +48,20 @@
 
 1. **KHÔNG** cache data nhạy cảm (nội dung văn bản mật, thông tin PII) mà không mã hóa.
 
-2. **KHÔNG** cache cross-tenant data — mỗi cache entry phải scoped theo TenantId:
+2. **KHÔNG** cache cross-tenant data - mỗi cache entry phải scoped theo TenantId:
 
    ```csharp
-   // ❌ WRONG — key không có tenantId
+   // [FAIL] WRONG - key không có tenantId
    var key = $"documents:{id}";
-   // ✅ CORRECT
+   // [OK] CORRECT
    var key = $"tenant:{tenantId}:documents:{id}";
    ```
 
 3. **KHÔNG** cache mãi mãi (TTL = null) cho data thay đổi thường xuyên.
 
-4. **KHÔNG** để cache miss block toàn bộ request nếu Redis down — implement fallback.
+4. **KHÔNG** để cache miss block toàn bộ request nếu Redis down - implement fallback.
 
-5. **KHÔNG** cache kết quả query phân trang động (vì filter/page thay đổi liên tục) — chỉ cache entity đơn lẻ theo ID.
+5. **KHÔNG** cache kết quả query phân trang động (vì filter/page thay đổi liên tục) - chỉ cache entity đơn lẻ theo ID.
 
 6. **KHÔNG** dùng `IMemoryCache` cho data cần consistent giữa nhiều instance API.
 
@@ -78,7 +78,7 @@
 ## Ví dụ minh họa
 
 ```csharp
-// ── Infrastructure/Caching/ICacheService.cs
+// -- Infrastructure/Caching/ICacheService.cs
 public interface ICacheService
 {
     Task<T?> GetAsync<T>(string key, CancellationToken ct = default);
@@ -87,7 +87,7 @@ public interface ICacheService
     Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiry = null, CancellationToken ct = default);
 }
 
-// ── Infrastructure/Caching/CacheKeys.cs
+// -- Infrastructure/Caching/CacheKeys.cs
 public static class CacheKeys
 {
     public static string Document(Guid tenantId, Guid docId) =>
@@ -100,7 +100,7 @@ public static class CacheKeys
         $"tenant:{tenantId}:user:{userId}:permissions";
 }
 
-// ── Cache-aside in Query Handler
+// -- Cache-aside in Query Handler
 internal sealed class GetDocumentByIdQueryHandler(
     IApplicationDbContext dbContext,
     ICacheService cache) : IQueryHandler<GetDocumentByIdQuery, Result<DocumentResponse>>
@@ -129,7 +129,7 @@ internal sealed class GetDocumentByIdQueryHandler(
     }
 }
 
-// ── Cache invalidation in Command Handler
+// -- Cache invalidation in Command Handler
 internal sealed class UpdateDocumentCommandHandler(IApplicationDbContext dbContext, ICacheService cache)
     : ICommandHandler<UpdateDocumentCommand, Result>
 {

@@ -3,7 +3,7 @@
 ## Nguyên tắc chính
 
 - **Ngôn ngữ**: Tiếng Việt cho tất cả comment giải thích nghiệp vụ.
-- **Mục đích**: Comment giải thích **ý nghĩa nghiệp vụ** của hàm/block — không mô tả lại những gì code đã nói rõ bằng tên biến/hàm.
+- **Mục đích**: Comment giải thích **ý nghĩa nghiệp vụ** của hàm/block - không mô tả lại những gì code đã nói rõ bằng tên biến/hàm.
 - **Mức độ**: Comment ở cấp hàm hoặc block logic quan trọng, không comment từng dòng.
 
 ## Khi nào cần comment
@@ -44,14 +44,14 @@ var defaultAssignment = assignments.FirstOrDefault(a => a.IsDefault);
 ## Không viết
 
 ```csharp
-// Hàm này set IsLocked = true   ← mô tả lại code, vô nghĩa
-// TODO: fix later                ← không được để TODO không có ticket
+// Hàm này set IsLocked = true   <- mô tả lại code, vô nghĩa
+// TODO: fix later                <- không được để TODO không có ticket
 /// <summary>
 /// Gets the staff by identifier and returns the result.
-/// </summary>                    ← XML doc dài không có thêm thông tin
+/// </summary>                    <- XML doc dài không có thêm thông tin
 ```
 
 ## Tóm tắt
 
 > Comment = **tại sao** hoặc **ý nghĩa nghiệp vụ**, không phải **làm gì**.  
-> Một dòng rõ ràng đủ — không viết block comment nhiều đoạn.
+> Một dòng rõ ràng đủ - không viết block comment nhiều đoạn.

@@ -1,4 +1,4 @@
-# 07 – Testing Strategy Rules
+# 07 - Testing Strategy Rules
 
 ---
 
@@ -9,7 +9,7 @@
    - Value Object creation và validation
    - Domain Event raising
    - FluentValidation validators
-   Không cần mock DB — Domain không phụ thuộc DB.
+   Không cần mock DB - Domain không phụ thuộc DB.
 
 2. **Integration Test** chạy với PostgreSQL  trong Testcontainers-dotnet:
 
@@ -20,19 +20,19 @@
    await postgres.StartAsync();
    ```
 
-3. **Architecture Test** (Will be implemented): Tạo project riêng `SmartOffice.Organization.ArchitectureTests` (hoặc top-level) dùng NetArchTest/ArchUnitNET để enforce Domain không reference Infrastructure, Application chỉ reference Domain, v.v. (xem checklist trong `docs/Apply Vertical Slice in Clean Architecture .NET API.md`).
+3. **Architecture Test** (Will be implemented): Tạo project riêng `{Company}.{Module}.ArchitectureTests` (hoặc top-level) dùng NetArchTest/ArchUnitNET để enforce Domain không reference Infrastructure, Application chỉ reference Domain, v.v. (nếu dự án có architecture tests).
 
-4. **Contract Test** cho event: verify schema (Pact hoặc snapshot) — áp dụng khi bus re-enable và có consumers thực.
+4. **Contract Test** cho event: verify schema (Pact hoặc snapshot) - áp dụng khi bus re-enable và có consumers thực.
 
 5. **Cấu trúc test thực tế (per-module)**:
 
    ```
-   SmartOffice.Organization.UnitTests/
-     Domain/ (ProductTests, ResultTests — không cần DB)
+   {Company}.{Module}.UnitTests/
+     Domain/ (ProductTests, ResultTests - không cần DB)
      Application/ (handler tests với fakes)
-   SmartOffice.Organization.IntegrationTests/
+   {Company}.{Module}.IntegrationTests/
      Infrastructure/ (WebAppFactory)
-     Products/ (endpoint tests — Testcontainers postgres)
+     Products/ (endpoint tests - Testcontainers postgres)
    ```
 
    UnitTests chỉ reference Domain + Application (không Infrastructure). Integration dùng DB thật (Testcontainers), clean sau test (tx rollback hoặc reset container).
@@ -45,7 +45,7 @@
 
 1. **KHÔNG** dùng `UseInMemoryDatabase()` cho Integration Test thực (chỉ dùng cho một số unit test đặc biệt của Persistence/Base nếu cần; InMemory thiếu transaction đầy đủ, jsonb, v.v.).
 
-2. **KHÔNG** mock `DbContext` trong Integration Test — dùng DB thật (Testcontainers).
+2. **KHÔNG** mock `DbContext` trong Integration Test - dùng DB thật (Testcontainers).
 
 3. **KHÔNG** đặt business/domain logic test vào Integration Test.
 
@@ -58,7 +58,7 @@
 ## Ví dụ minh họa
 
 ```csharp
-// ── Architecture Test
+// -- Architecture Test
 [Fact]
 public void Domain_Should_Not_Reference_Infrastructure()
 {
@@ -70,7 +70,7 @@ public void Domain_Should_Not_Reference_Infrastructure()
     Assert.True(result.IsSuccessful);
 }
 
-// ── Unit Test — Domain logic không cần DB
+// -- Unit Test - Domain logic không cần DB
 [Fact]
 public void Document_Publish_Should_Raise_DocumentPublishedEvent()
 {
@@ -87,7 +87,7 @@ public void Document_Publish_Should_Raise_DocumentPublishedEvent()
     Assert.Equal(doc.Id, publishedEvent.DocumentId);
 }
 
-// ── Integration Test — dùng Testcontainers
+// -- Integration Test - dùng Testcontainers
 public class CreateDocumentTests : IAsyncLifetime
 {
     private PostgreSqlContainer _postgres = null!;

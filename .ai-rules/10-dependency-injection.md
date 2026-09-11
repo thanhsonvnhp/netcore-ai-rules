@@ -1,10 +1,10 @@
-# 10 – Dependency Injection & Service Registration Rules
+# 10 - Dependency Injection & Service Registration Rules
 
 ---
 
 ## Mediator Library
 
-Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `ICommand<T>` / `IQuery<T>` trong `BuildingBlock.Application.Shared.Abstractions.Messaging` (implement `IRequest<Result>` của Mediator).
+Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `ICommand<T>` / `IQuery<T>` trong shared `Application.Shared.Abstractions.Messaging` (hoặc `{Company}.BuildingBlock.Application.Shared` nếu modular) (implement `IRequest<Result>` của Mediator).
 **KHÔNG dùng MediatR (Jimmy Bogard).**
 
 ---
@@ -14,7 +14,7 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
 1. **Tổ chức registration theo LAYERED context** bằng extension methods:
 
    ```csharp
-   // Program.cs — chỉ gọi module-level extensions
+   // Program.cs - chỉ gọi module-level extensions
    builder.Services
        .AddApplicationSServices(builder.Configuration)
        .AddInfrastructure(builder.Configuration)
@@ -22,9 +22,9 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    ```
 
 2. **Mỗi layer tự đăng ký qua `IServiceCollection` extension** đặt trong layer đó:
-   - `Application/DependencyInjection.cs` → `AddApplicationSServices()`
-   - `Infrastructure/DependencyInjection.cs` → `AddInfrastructure()`
-   - `Api/DependencyInjection.cs` → `AddApiServices()`
+   - `Application/DependencyInjection.cs` -> `AddApplicationSServices()`
+   - `Infrastructure/DependencyInjection.cs` -> `AddInfrastructure()`
+   - `Api/DependencyInjection.cs` -> `AddApiServices()`
 
 3. **Chọn service lifetime đúng:**
 
@@ -49,7 +49,7 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    ```csharp
    services.AddMediator(options =>
    {
-       options.Namespace = "SmartOffice.OrganizationManagement.Application";
+       options.Namespace = "Acme.Catalog.Application";
        options.ServiceLifetime = ServiceLifetime.Scoped;
    });
    services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
@@ -66,44 +66,44 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
 
 ## DON'T
 
-1. **KHÔNG** inject `IServiceProvider` vào constructor — đây là Service Locator anti-pattern:
+1. **KHÔNG** inject `IServiceProvider` vào constructor - đây là Service Locator anti-pattern:
 
    ```csharp
-   // ❌ WRONG
+   // [FAIL] WRONG
    public class MyService(IServiceProvider sp)
    {
        var repo = sp.GetRequiredService<IDocumentRepository>();
    }
-   // ✅ CORRECT
+   // [OK] CORRECT
    public class MyService(IDocumentRepository repo) { }
    ```
 
-2. **KHÔNG** đăng ký `DbContext` là Singleton — gây lỗi nghiêm trọng trong concurrent environment:
+2. **KHÔNG** đăng ký `DbContext` là Singleton - gây lỗi nghiêm trọng trong concurrent environment:
 
    ```csharp
-   // ❌ WRONG
+   // [FAIL] WRONG
    services.AddSingleton<AppDbContext>();
-   // ✅ CORRECT
+   // [OK] CORRECT
    services.AddDbContext<AppDbContext>(options => ..., ServiceLifetime.Scoped);
    ```
 
-3. **KHÔNG** đăng ký concrete class trực tiếp mà không có interface — khóa chặt dependency, khó test:
+3. **KHÔNG** đăng ký concrete class trực tiếp mà không có interface - khóa chặt dependency, khó test:
 
    ```csharp
-   // ❌ WRONG
+   // [FAIL] WRONG
    services.AddScoped<DocumentService>();
-   // ✅ CORRECT
+   // [OK] CORRECT
    services.AddScoped<IDocumentService, DocumentService>();
    ```
 
-4. **KHÔNG** để `Program.cs` phình to với hàng trăm dòng registration — tách hết vào module extensions.
+4. **KHÔNG** để `Program.cs` phình to với hàng trăm dòng registration - tách hết vào module extensions.
 
-5. **KHÔNG** inject Scoped service vào Singleton — gây captive dependency bug:
+5. **KHÔNG** inject Scoped service vào Singleton - gây captive dependency bug:
 
    ```csharp
-   // ❌ WRONG — DbContext (Scoped) inject vào Singleton → lỗi
+   // [FAIL] WRONG - DbContext (Scoped) inject vào Singleton -> lỗi
    public class CacheSingleton(AppDbContext db) { ... }
-   // ✅ CORRECT — dùng IServiceScopeFactory nếu cần tạo scope thủ công
+   // [OK] CORRECT - dùng IServiceScopeFactory nếu cần tạo scope thủ công
    public class CacheSingleton(IServiceScopeFactory factory) { ... }
    ```
 
@@ -112,7 +112,7 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
 ## Ví dụ minh họa
 
 ```csharp
-// ── Program.cs (gọn)
+// -- Program.cs (gọn)
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
@@ -123,7 +123,7 @@ builder.Services
 var app = builder.Build();
 app.Run();
 
-// ── Application/DependencyInjection.cs
+// -- Application/DependencyInjection.cs
 public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
@@ -143,7 +143,7 @@ public static class DependencyInjection
     }
 }
 
-// ── Infrastructure/DependencyInjection.cs
+// -- Infrastructure/DependencyInjection.cs
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(

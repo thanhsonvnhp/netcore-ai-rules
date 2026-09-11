@@ -1,116 +1,101 @@
-# 13 – Background Jobs & Outbox / Reliable Messaging (Current: Outbox-First)
+# 13 - Background Jobs & Outbox / Reliable Messaging (Outbox-First)
 
-> **Authoritative design**: `docs/Entity-Domain-And-OutboxEvent.md` (luôn đọc khi làm việc với events/outbox).
-> **Current runtime (outbox-event branch)**: Bus registration MassTransit **được comment** trong Program.cs. Không có `IMessagePublisher` implementation được đăng ký. Events tích lũy an toàn trong bảng `outbox_events` (per schema). Relay background processor chưa triển khai.
-
----
-
-## Outbox Pattern Hiện Tại (Transactional, "publish after commit")
-
-Không phải model "lưu OutboxMessage + BackgroundService poll đơn giản" như một số tài liệu cũ.
-
-**Flow thực tế (auto-tx ICommand)**:
-
-1. Handler: tạo aggregate → `RaiseDomainEvent(...)` (trong Domain) → `dbContext.SaveChangesAsync()`.
-2. `OutboxDomainEventInterceptor` (Scoped, trong SavingChanges): harvest Domain Events qua reflection → tạo `OutboxEvent` (serialize DE làm Payload) → `baseCtx.PrepareOutboxEvent(outbox)` (buffer nội bộ, không Add ngay) + `AddPendingDomainEventForPostCommit` → Clear events trên entity.
-3. Handler (sau Save): build `IIntegrationEvent` (chủ động hoặc từ DE) → `collector.Add(ie)` (scoped `IIntegrationEventCollector`).
-4. Handler: tạo `OutboxEvent` từ IE → `dbContext.PrepareOutboxEvent(outboxEvt)` (thủ công) → collector.Clear(). (Một số path test/InMemory có Save thêm để visible.)
-5. `TransactionBehavior` (cho ICommand): đảm bảo commit thực sự (Base flush prepared outbox rows vào `OutboxEvents` DbSet + commit tx).
-6. `IntegrationEventPublishBehavior` (post-handler): sau commit, drain collector (nếu còn) + nếu `IMessagePublisher` registered thì `PublishAsync` từng IE (hiện publisher null → chỉ Clear).
-7. Post-commit (trong Base): nếu `IDomainEventPublisher` registered → publish in-process domain events (với Polly retry 3 lần, nuốt lỗi vì đã commit).
-
-**Đảm bảo**: Nếu business commit thành công → OutboxEvent row đã được ghi cùng transaction (durable). Publish là best-effort (khi bus enable) hoặc do relay tương lai xử lý.
-
-**Bảng**: `organization.outbox_events` (DbUp script 000002, schema per module). Columns: id, occurred_on_utc, entity_type, event_type, payload (jsonb), payload_event_type, error, processed_on_utc, correlation_id + audit/row_version (để uniform với bảng khác).
-
-**Relay tương lai**: đọc rows chưa `ProcessedOnUtc`, deserialize bằng `EventType`/`PayloadEventType` + Payload, gọi `IMessagePublisher`, mark processed (hoặc delete).
+> **Template:** File này định nghĩa pattern **transactional Outbox** cho messaging đáng tin cậy. Nếu dự án không có messaging/event-driven flow, bỏ qua phần Outbox và chỉ áp dụng phần Background Jobs.
 
 ---
 
-## DO (Current Implementation)
+## Outbox Pattern (Transactional, "publish after commit")
 
-1. **Domain chỉ raise**: Aggregate/Entity gọi `RaiseDomainEvent(new MyDomainEvent(...))`. Không biết outbox hay broker.
+Không dùng model "lưu OutboxMessage + BackgroundService poll rời rạc khỏi transaction". Outbox row phải được ghi **cùng transaction** với business data.
 
-2. **Application chịu trách nhiệm IE + collector**:
-   - Dùng scoped `IIntegrationEventCollector` (đăng ký trong AddApplication).
-   - Sau `SaveChangesAsync`, tạo IE → `collector.Add(ie)`.
-   - Tạo `OutboxEvent` thủ công → `dbContext.PrepareOutboxEvent(evt)` (để buffer tham gia flush-on-commit của Base).
+**Flow chuẩn**:
 
-3. **Persistence BB lo cơ chế**:
-   - `OutboxDomainEventInterceptor` (Scoped) harvest DE → Prepare + pending list.
-   - `BaseSmartOfficeDbContext` có buffer `_preparedOutboxEvents`, `FlushPreparedOutboxEvents*` (gọi trong commit path), post-commit `PublishPendingDomainEventsAfterCommitAsync` (dùng `IDomainEventPublisher` nếu có + Polly).
-   - Hỗ trợ explicit tx (controller tự Begin/Commit) và implicit (Save hoặc TransactionBehavior).
-   - Read-only DbContext variant cũng có (NoTracking).
+1. Handler: tạo aggregate -> `RaiseDomainEvent(...)` (trong Domain) -> `dbContext.SaveChangesAsync()`.
+2. `OutboxDomainEventInterceptor` (Scoped, chạy trong SavingChanges): harvest Domain Events -> tạo `OutboxEvent` (serialize event làm payload) -> buffer nội bộ (`PrepareOutboxEvent`) -> clear events trên entity.
+3. Handler (sau Save): build `IIntegrationEvent` (chủ động hoặc map từ Domain Event) -> thêm vào `IIntegrationEventCollector` (scoped).
+4. `TransactionBehavior` (cho command): flush các outbox row đã buffer vào `OutboxEvents` DbSet + commit transaction.
+5. `IntegrationEventPublishBehavior` (post-handler): sau commit, nếu `IMessagePublisher` được đăng ký thì `PublishAsync` từng integration event.
+6. Post-commit: nếu có `IDomainEventPublisher` -> publish in-process domain events (best-effort, retry nhẹ - dữ liệu đã commit nên nuốt lỗi có log).
 
-4. **Pipeline behaviors** (đăng ký trong AddApplication của module):
-   - `IntegrationEventPublishBehavior` (Singleton, GetService "nếu có").
-   - `TransactionBehavior` (Scoped, chỉ ICommand, skip nếu đã có active tx).
+**Đảm bảo**: business commit thành công -> outbox row đã được ghi cùng transaction (durable). Publish ra broker là best-effort; relay/processor đảm bảo eventual delivery.
 
-5. **IMessagePublisher** (seam Application.Abstractions.Messaging) là bề mặt publish duy nhất code nên depend. Impl do EventBus building block cung cấp khi enable (hiện null).
+**Bảng outbox**: `<schema>.outbox_events` - columns: `id`, `occurred_on_utc`, `entity_type`, `event_type`, `payload` (jsonb), `payload_event_type`, `error`, `processed_on_utc`, `correlation_id` + audit/`row_version` (uniform với các bảng khác).
 
-6. **Table per schema + DbUp**: Mỗi module có schema riêng (organization.outbox_events, ...). Script trong `.dbup/Scripts/smart_office/<schema>/Schema/`.
+**Relay/processor**: hosted service đọc rows chưa `processed_on_utc`, deserialize bằng `event_type`/`payload_event_type`, gọi `IMessagePublisher`, mark processed (hoặc delete). Dùng `FOR UPDATE SKIP LOCKED` (PostgreSQL) hoặc tương đương khi nhiều instance.
 
-7. **Idempotency / replay**: Relay tương lai phải xử lý (dựa MessageId hoặc processed flag). Consumer tương lai cần idempotent.
+---
 
-8. **Metrics cho relay (tương lai)**: số processed, error, latency, queue depth.
+## DO
 
-**Không dùng** (hiện tại):
+1. **Domain chỉ raise**: aggregate/entity gọi `RaiseDomainEvent(new MyDomainEvent(...))`. Domain không biết gì về outbox hay broker.
 
-- Không có `OutboxProcessor : BackgroundService` đang chạy.
-- Không có bảng ProcessedMessages / Inbox.
-- Không có Hangfire/Quartz.
-- Bus + consumers bị comment.
+2. **Application chịu trách nhiệm integration events + collector**:
+   - Dùng scoped `IIntegrationEventCollector` (đăng ký trong `AddApplication`).
+   - Sau `SaveChangesAsync`, tạo IE -> `collector.Add(ie)`.
+   - Tạo `OutboxEvent` -> `dbContext.PrepareOutboxEvent(evt)` (buffer, flush-on-commit ở base DbContext).
 
-## DON'T (Current)
+3. **Persistence layer lo cơ chế**:
+   - `OutboxDomainEventInterceptor` harvest domain events -> buffer + pending list.
+   - Base DbContext có buffer `_preparedOutboxEvents` + flush trong commit path + publish pending domain events sau commit.
+   - Hỗ trợ explicit transaction và implicit transaction.
+   - Read-only DbContext variant (NoTracking) cho query.
 
-1. **KHÔNG** publish trực tiếp sang broker bên trong transaction/handler (dùng collector + PrepareOutboxEvent để durable).
+4. **Pipeline behaviors** (đăng ký trong `AddApplication` của module):
+   - `IntegrationEventPublishBehavior` - publish sau commit.
+   - `TransactionBehavior` - chỉ áp dụng cho command, skip nếu đã có active transaction.
 
-2. **KHÔNG** gọi `dbContext.OutboxEvents.Add(...)` trực tiếp cho các event chuẩn bị (dùng `PrepareOutboxEvent` để buffer nội bộ của Base, flush đúng lúc commit).
+5. **`IMessagePublisher`** (abstraction trong `Application.Abstractions.Messaging`) là bề mặt publish duy nhất code được depend. Implementation (MassTransit, RabbitMQ client, Azure Service Bus, Kafka...) do Infrastructure / shared layer cung cấp và **thay thế được**.
 
-3. **KHÔNG** assume `IMessagePublisher` luôn có (dùng GetService + "nếu có thì" pattern trong behavior/interceptor — tránh captive + khi bus bị comment vẫn chạy).
+6. **Mỗi module có schema riêng** cho outbox table (ví dụ `catalog.outbox_events`). Script migration nằm trong thư mục của module (xem `14-database-rule.md`).
 
-4. **KHÔNG** poll outbox table thủ công từ code nghiệp vụ (để relay tương lai lo).
+7. **Idempotency / replay**: relay phải dựa trên `message_id` hoặc processed flag; consumer phải idempotent.
 
-5. **KHÔNG** bỏ qua việc clear collector sau drain (tránh leak scope).
+8. **Metrics cho relay**: số processed, error, latency, queue depth (xem `06-observability.md`).
 
-6. **KHÔNG** dùng Hangfire/Quartz cho outbox relay (dùng dedicated processor hoặc hosted service khi triển khai).
+## DON'T
 
-## OutboxEvent Table (thực tế từ DbUp + Configuration)
+1. **KHÔNG** publish trực tiếp sang broker bên trong transaction/handler (dùng collector + `PrepareOutboxEvent` để durable).
 
-Bảng `outbox_events` (trong schema của module, ví dụ `organization`):
+2. **KHÔNG** gọi `dbContext.OutboxEvents.Add(...)` cho event chuẩn bị - dùng `PrepareOutboxEvent` để buffer flush đúng lúc commit.
 
-- id (uuid PK), occurred_on_utc, entity_type, event_type, payload (jsonb), payload_event_type, error, processed_on_utc, correlation_id
-- - created_at/created_by/updated_at/updated_by/is_deleted/deleted_at/row_version (uniform với các bảng khác, interceptor audit set)
-- Index: ix_outbox_events_processed_on_utc, ix_outbox_events_occurred_on_utc
+3. **KHÔNG** assume `IMessagePublisher` luôn tồn tại - resolve optional (`GetService`) + skip nếu chưa cấu hình, để code chạy được khi messaging chưa bật.
 
-Script: `.dbup/Scripts/smart_office/organization/Schema/000002_outbox_events.sql`
+4. **KHÔNG** poll outbox table thủ công từ code nghiệp vụ (relay/hosted service lo).
 
-## Ví dụ minh họa (thực tế code Organization + Persistence BB)
+5. **KHÔNG** quên clear collector sau drain (tránh leak scope).
+
+6. **KHÔNG** dùng thư viện scheduler (Hangfire/Quartz) cho outbox relay - dùng dedicated processor hoặc hosted service.
+
+---
+
+## Background Jobs (khi dự án cần)
+
+- Job chạy nền định kỳ: dùng `IHostedService`/`BackgroundService` cho job đơn giản; scheduler chuyên dụng (Hangfire, Quartz) khi cần retry, dashboard, cron phức tạp - chọn 1, ghi rõ stack vào `core/01-project-hard-rules.md`.
+- Job phải idempotent và có timeout.
+- Job không được hold transaction dài; tách batch nhỏ.
+- Cấu hình qua Options pattern (xem `11-configuration.md`), không hardcode interval.
+
+## Ví dụ minh họa
 
 ```csharp
 // Domain (chỉ raise)
 product.RaiseDomainEvent(new ProductCreatedDomainEvent(product.Id, product.Name, product.Price));
 
 // Handler (sau Save + collector)
-var ie = new ProductCreatedIntegrationEvent(...);
+var ie = new ProductCreatedIntegrationEvent(product.Id, product.Name);
 integrationEventCollector.Add(ie);
 foreach (var e in integrationEventCollector.Events)
 {
     dbContext.PrepareOutboxEvent(new OutboxEvent
     {
         OccurredOnUtc = DateTime.UtcNow,
-        EventType = e.GetType().AssemblyQualifiedName ?? ...,
+        EventType = e.GetType().AssemblyQualifiedName!,
         Payload = JsonSerializer.Serialize(e, e.GetType()),
         // EntityType, CorrelationId, PayloadEventType...
     });
 }
 integrationEventCollector.Clear();
 
-// (Optional extra Save cho InMemory/test visibility của OutboxEvents.Local)
-if (dbContext.OutboxEvents.Local.Any()) await dbContext.SaveChangesAsync(ct);
-
-// Sau này (relay): đọc WHERE processed_on_utc IS NULL ... FOR UPDATE SKIP LOCKED
+// Relay (hosted service): đọc WHERE processed_on_utc IS NULL ... FOR UPDATE SKIP LOCKED
 // Deserialize bằng EventType/PayloadEventType, gọi IMessagePublisher, set ProcessedOnUtc.
 ```
-
-Xem chi tiết luồng + trách nhiệm layer trong `docs/Entity-Domain-And-OutboxEvent.md` (section 3-8).

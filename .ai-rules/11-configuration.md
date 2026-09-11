@@ -1,4 +1,4 @@
-# 11 – Configuration Management Rules
+# 11 - Configuration Management Rules
 
 ---
 
@@ -51,38 +51,38 @@
 1. **KHÔNG** đọc `IConfiguration["Section:Key"]` trực tiếp trong business logic:
 
    ```csharp
-   // ❌ WRONG
+   // [FAIL] WRONG
    var connStr = _config["Database:ConnectionString"];
-   // ✅ CORRECT
+   // [OK] CORRECT
    var connStr = _dbOptions.Value.ConnectionString;
    ```
 
 2. **KHÔNG** commit secrets, connection strings, API keys vào source code hay appsettings.json:
 
    ```json
-   // ❌ WRONG — commit vào git
+   // [FAIL] WRONG - commit vào git
    { "Jwt": { "SecretKey": "my-super-secret-key" } }
    ```
 
    Dùng `dotnet user-secrets set "Jwt:SecretKey" "..."` khi phát triển.
 
-3. **KHÔNG** bỏ qua `ValidateOnStart()` — nếu config thiếu/sai sẽ crash runtime thay vì startup.
+3. **KHÔNG** bỏ qua `ValidateOnStart()` - nếu config thiếu/sai sẽ crash runtime thay vì startup.
 
 4. **KHÔNG** inject `IConfiguration` vào Domain hoặc Application layer.
 
 5. **KHÔNG** dùng `string` constant trực tiếp để trỏ section name:
 
    ```csharp
-   // ❌ WRONG — dễ typo, không refactor được
+   // [FAIL] WRONG - dễ typo, không refactor được
    .BindConfiguration("Dtabase")
-   // ✅ CORRECT
+   // [OK] CORRECT
    .BindConfiguration(DatabaseOptions.SectionName)
    ```
 
 ## Ví dụ minh họa
 
 ```csharp
-// ── Infrastructure/Options/DatabaseOptions.cs
+// -- Infrastructure/Options/DatabaseOptions.cs
 public class DatabaseOptions
 {
     public const string SectionName = "Database";
@@ -97,7 +97,7 @@ public class DatabaseOptions
     public int CommandTimeoutSeconds { get; set; } = 30;
 }
 
-// ── Infrastructure/Options/RabbitMqOptions.cs
+// -- Infrastructure/Options/RabbitMqOptions.cs
 public class RabbitMqOptions
 {
     public const string SectionName = "RabbitMq";
@@ -108,7 +108,7 @@ public class RabbitMqOptions
     public int Port { get; set; } = 5672;
 }
 
-// ── Infrastructure/DependencyInjection.cs
+// -- Infrastructure/DependencyInjection.cs
 services.AddOptions<DatabaseOptions>()
     .BindConfiguration(DatabaseOptions.SectionName)
     .ValidateDataAnnotations()
@@ -119,15 +119,15 @@ services.AddOptions<RabbitMqOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-// ── appsettings.json (safe — không có secrets)
+// -- appsettings.json (safe - không có secrets)
 {
   "Database": {
     "MaxRetryCount": 3,
     "CommandTimeoutSeconds": 30
   },
   "Jwt": {
-    "Issuer": "https://id.smartoffice.vn",
-    "Audience": "SmartOfficeAPI",
+    "Issuer": "https://id.example.com",
+    "Audience": "{Company}API",
     "ExpiryMinutes": 60
   },
   "Features": {
@@ -136,10 +136,10 @@ services.AddOptions<RabbitMqOptions>()
   }
 }
 
-// ── appsettings.Development.json (không commit ConnectionString thật)
+// -- appsettings.Development.json (không commit ConnectionString thật)
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Database=smart_office_dev;Username=postgres;Password=postgres"
+    "DefaultConnection": "Host=localhost;Database={database}_dev;Username=postgres;Password=postgres"
   }
 }
 ```

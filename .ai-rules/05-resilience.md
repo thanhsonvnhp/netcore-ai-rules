@@ -1,4 +1,4 @@
-# 05 – Resilience Pattern Rules
+# 05 - Resilience Pattern Rules
 
 ## Scope
 
@@ -46,9 +46,9 @@ Example project file:
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>SmartOffice.BuildingBlock.Connector.Identity</PackageId>
+    <PackageId>{Company}.Connector.Identity</PackageId>
     <Authors>Dev</Authors>
-    <Title>SmartOffice.BuildingBlock.Connector.Identity</Title>
+    <Title>{Company}.Connector.Identity</Title>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -293,7 +293,7 @@ Allowed fallback types:
 
 ## Message Resilience
 
-Use BuildingBlock EventBus MassTransit configuration for message retry, delayed redelivery, outbox, and dead-letter handling.
+Use EventBus configuration (ví dụ MassTransit) for message retry, delayed redelivery, outbox, and dead-letter handling.
 
 Rules:
 
@@ -507,7 +507,7 @@ Do not block async calls with `.Result` or `.Wait()`.
 * `MassTransit`
 * MassTransit Outbox
 * MassTransit Consumer Outbox / Inbox
-* BuildingBlock EventBus
+* EventBus (Infrastructure)
 * `Idempotency-Key`
 * `DbUpdateConcurrencyException`
 * `CancellationToken`

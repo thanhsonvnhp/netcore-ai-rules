@@ -1,4 +1,4 @@
-# 02 – CQRS Pattern Rules
+# 02 - CQRS Pattern Rules
 
 ## Mediator
 
@@ -9,7 +9,7 @@ The project uses `Mediator` source generator packages:
 <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
 ```
 
-Use local messaging abstractions from `BuildingBlock.Application.Shared` to wrap Mediator request types and return:
+Use local messaging abstractions from `Application.Shared` hoặc `{Company}.BuildingBlock.Application.Shared` (nếu modular) to wrap Mediator request types and return:
 
 * `Result`
 * `Result<T>`
@@ -96,10 +96,10 @@ Effective execution order:
 
 ```text
 Logging
-→ Validation
-→ IntegrationEventPublish
-→ Transaction
-→ Handler
+-> Validation
+-> IntegrationEventPublish
+-> Transaction
+-> Handler
 ```
 
 `TransactionBehavior` controls transaction begin, commit, and rollback for commands.
@@ -118,15 +118,15 @@ Command handlers follow this flow:
 
 ```text
 Input validation by pipeline
-→ Domain factory/method
-→ Domain event raised by aggregate
-→ Add or update aggregate
-→ SaveChangesAsync
-→ Domain events harvested by interceptor
-→ Outbox event prepared
-→ Integration event collected when required
-→ Transaction committed by pipeline
-→ Integration event published by pipeline
+-> Domain factory/method
+-> Domain event raised by aggregate
+-> Add or update aggregate
+-> SaveChangesAsync
+-> Domain events harvested by interceptor
+-> Outbox event prepared
+-> Integration event collected when required
+-> Transaction committed by pipeline
+-> Integration event published by pipeline
 ```
 
 Rules:
@@ -147,10 +147,10 @@ Simple query handlers use EF Core read context:
 
 ```text
 ReadOnlyDbContext
-→ AsNoTracking()
-→ Filter
-→ Project or map to response DTO
-→ Return Result<TResponse>
+-> AsNoTracking()
+-> Filter
+-> Project or map to response DTO
+-> Return Result<TResponse>
 ```
 
 Complex query handlers use direct DTO projection:
@@ -159,8 +159,8 @@ Complex query handlers use direct DTO projection:
 EF Core LINQ projection
 or
 PostgreSQL function
-→ DTO
-→ Return Result<TResponse>
+-> DTO
+-> Return Result<TResponse>
 ```
 
 Rules:
@@ -362,6 +362,6 @@ internal sealed class GetProductsQueryHandler(
 
 ## Related Documents
 
-* `docs/Apply Vertical Slice in Clean Architecture .NET API.md`
-* `docs/Entity-Domain-And-OutboxEvent.md`
+* `docs/apply-vertical-slice-clean-architecture-dotnet-api.md`
+* `docs/entity-domain-and-outbox-event.md`
 * `docs/13-background-jobs.md`

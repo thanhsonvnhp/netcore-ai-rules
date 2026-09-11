@@ -42,7 +42,7 @@ When your changes make something unused:
 - Remove only the imports/variables/functions *your changes* rendered dead.
 - Leave all pre-existing dead code untouched.
 
-**Test for compliance**: Every changed line must be directly traceable to a line in the current feature's `tasks.md` or acceptance criteria (or to a specific SmartOffice hard rule / .ai-rule).
+**Test for compliance**: Every changed line must be directly traceable to a line in the current feature's `tasks.md` or acceptance criteria (or to a specific project hard rule / `.ai-rules` reference file).
 
 **When to apply most rigorously**: Implement phase and any subsequent fixes.
 
@@ -63,8 +63,8 @@ For every task:
 For multi-step work, always publish a brief plan with verification steps:
 
 ```text
-1. [Specific action] → Verify: [exact command or observable outcome]
-2. [Specific action] → Verify: [exact command or observable outcome]
+1. [Specific action] -> Verify: [exact command or observable outcome]
+2. [Specific action] -> Verify: [exact command or observable outcome]
 ```
 
 Use this format in `plan.md` and `tasks.md`. During implementation, self-verify against the criteria before marking a task complete.
