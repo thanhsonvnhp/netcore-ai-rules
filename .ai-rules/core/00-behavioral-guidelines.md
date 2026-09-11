@@ -70,3 +70,23 @@ For multi-step work, always publish a brief plan with verification steps:
 Use this format in `plan.md` and `tasks.md`. During implementation, self-verify against the criteria before marking a task complete.
 
 **When to apply most rigorously**: Plan, Tasks, Implement, and QA/Security/Review phases.
+
+### Verification Gate (evidence before claims)
+
+Never claim completion without fresh verification evidence. Every claim must be proven by a command in the same turn.
+
+| Claim | Requires (fresh run) | Not sufficient |
+|-------|----------------------|----------------|
+| Tests pass | `dotnet test` — 0 failures | Previous run, "should pass" |
+| Build succeeds | `dotnet build` — exit 0 | Linter passing, "looks good" |
+| Bug fixed | Reproduce test: RED -> GREEN | Code changed, assumed fixed |
+
+Forbidden: `should`, `probably`, `seems to pass`. Run the command, read exit code, then claim.
+
+### TDD Iron Law
+
+`NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.` Write the test, watch it fail correctly, then write minimal code to pass. Code written before its test must be deleted and rewritten from the test.
+
+### Debugging Discipline
+
+Bug fix = `Reproduce -> Root cause -> Fix -> Verify`. No fixes without root-cause investigation first. Reproduce with a failing test before touching production code.
