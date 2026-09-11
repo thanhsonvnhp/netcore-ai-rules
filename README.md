@@ -69,13 +69,3 @@ Chi tiết placeholder xem `.ai-rules/TEMPLATE_VARS.md`.
 
 1. Mở `.ai-rules/core/01-project-hard-rules.md` điền Business Overview + stack thực tế.
 2. Chạy `git add .ai-rules .agents CLAUDE.md AGENTS.md` và commit.
-
-## Ủng hộ tác giả
-
-Nếu bộ rules này hữu ích, tặng mình một cốc coffee nhé!
-
-<p align="center">
-  <img src="docs/coffee-qr.png" alt="VietQR - Tặng coffee cho tác giả" width="320" />
-  <br />
-  <sub>VPBank · VietQR · napas 247</sub>
-</p>

@@ -4,6 +4,18 @@
 The complete, current workflow definition, commands, paths, and process steps live in:
 **-> `.specify/WORKFLOW.md`** (When User use the `/kit-clarify-plan`, `/kit-implement`, or `/kit-status` commands, MUST read this file in full at the start of every feature)
 
+## Task Classification (before any design)
+
+Classify every request and announce the path so the human can override:
+
+- **Spike** — feasibility question ("can we...?"), output is an answer, not kept code. No spec file.
+- **Bounded** — small change to an existing flow already in the repo (flag, endpoint, one-file fix). Design = 2-3 sentences in chat, then approval.
+- **Architectural** — new subsystem or cross-component change. Full artifacts `01 -> 05` + Gate.
+
+When in doubt, take the heavier path. Hidden complexity upgrades the path mid-task — stop and re-classify.
+
+**Hard Gate:** Do not write production code until the human has approved the design (chat approval for Bounded, `APPROVE_IMPLEMENTATION` for Architectural).
+
 ## Core Constitution (non-negotiable)
 
 This repository uses a **spec-driven, artifact-first** workflow.
