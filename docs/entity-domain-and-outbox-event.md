@@ -3,7 +3,7 @@
 > Tài liệu này mô tả cách tách Domain Event / Integration Event và dùng OutboxEvent để đảm bảo publish bền vững cùng transaction (outbox-first).
 > Đọc khi cần hiểu flow buffer → flush → commit → publish sau commit trong BaseDbContext.
 
-**Phạm vi**: Persistence Building Block + các contract Application + cách sử dụng trong module. Xem AGENTS.md phần Event Bus (hiện đang outbox-first).
+**Phạm vi**: Persistence Building Block + các contract Application + cách sử dụng trong module. Rule outbox-first ở `.ai-rules/core/01-project-hard-rules.md` và `.ai-rules/13-background-jobs.md`.
 
 ## 1. Mục đích và Các đảm bảo
 
@@ -14,7 +14,7 @@ Mục tiêu là giải quyết vấn đề dual-write khi phát thông báo vư�
 
 **Đảm bảo then chốt**:
 - Nếu commit nghiệp vụ thành công thì bản ghi bền vững (OutboxEvent row) đã được ghi cùng transaction.
-- Publish là best-effort (khi bus được đăng ký) hoặc được relay (tương lai) xử lý sau.
+- Publish là best-effort (khi bus được đăng ký) hoặc do relay processor xử lý sau.
 - Không captive dependency (interceptor/behavior dùng GetService "nếu có thì").
 - Domain chỉ raise sự kiện; không biết outbox hay broker.
 
@@ -53,21 +53,21 @@ Sự kiện/hợp đồng được xuất bản ra broker để các thành ph�
 - Plain record/POCO, chỉ implement marker rỗng `IIntegrationEvent`.
 - Không được raise trên entity.
 - Thu thập qua `IIntegrationEventCollector` (Scoped).
-- Hiện tại được chuẩn bị thủ công thành OutboxEvent row (sau SaveChanges) để đảm bảo độ bền.
+- Được chuẩn bị thành OutboxEvent row (sau SaveChanges) để đảm bảo độ bền.
 
 ### 2.3 OutboxEvent ({Company}.BuildingBlocks.Persistence.Outbox)
 Bản ghi bền vững của "ý định publish", được ghi vào DB **cùng transaction** với dữ liệu nghiệp vụ qua buffer + flush của BaseDbContext.
 
-**Cấu trúc bảng** (DbUp, schema theo module, ví dụ `{schema}.outbox_events`):
+**Cấu trúc bảng** (DbUp, schema theo module, ví dụ `<schema>.outbox_events`):
 - `id`, `occurred_on_utc`, `entity_type`, `event_type`, `payload` (jsonb), `payload_event_type`, `error`, `processed_on_utc`, `correlation_id`.
 - Đầy đủ cột audit (`IAuditable`) + `row_version` để thống nhất với các bảng khác.
 - Chỉ số: `ix_outbox_events_processed_on_utc`, `ix_outbox_events_occurred_on_utc`.
 
 **Mục đích**:
 - Đảm bảo ý định publish sống sót qua crash, restart, scale.
-- Relay (chưa triển khai) sẽ đọc các row chưa xử lý, deserialize (dựa `EventType`/`PayloadEventType`), gọi `IMessagePublisher`, đánh dấu `ProcessedOnUtc`.
+- Relay processor đọc các row chưa xử lý, deserialize (dựa `EventType`/`PayloadEventType`), gọi `IMessagePublisher`, đánh dấu `ProcessedOnUtc`.
 
-Hiện tại OutboxEvent được dùng cho cả Domain Event (harvest tự động) lẫn Integration Event (chuẩn bị thủ công).
+OutboxEvent được dùng cho cả Domain Event (harvest tự động) lẫn Integration Event (chuẩn bị trong handler).
 
 ## 3. Phát hành, Harvest và Buffer
 
@@ -77,8 +77,6 @@ Hiện tại OutboxEvent được dùng cho cả Domain Event (harvest tự đ�
   - Với mỗi DE: tạo `OutboxEvent` (serialize DE làm Payload), gọi `PrepareOutboxEvent` (buffer) + `AddPendingDomainEventForPostCommit`.
   - Clear sự kiện trên entity qua reflection.
 - **Buffer**: `BaseDbContext` giữ `_preparedOutboxEvents` và `_pendingDomainEventsForPostCommit` nội bộ. Không Add trực tiếp vào DbSet ngay trong interceptor (theo spec).
-
-Lưu ý: docstring của interceptor hiện chưa được cập nhật hoàn toàn so với logic thực tế.
 
 ## 4. Điều phối Transaction (BaseDbContext)
 
@@ -94,7 +92,7 @@ Module DbContext (ví dụ `{Module}DbContext`) kế thừa Base, expose `DbSet<
 ## 5. Collection Integration Event & Thời điểm Publish
 
 - `IIntegrationEventCollector` (Scoped) + `IntegrationEventCollector`: `Add`, `AddRange`, `Events`, `Clear`.
-- Mẫu hiện tại trong handler (sau `SaveChangesAsync`):
+- Mẫu trong handler (sau `SaveChangesAsync`):
   - Tạo `IIntegrationEvent`.
   - `collector.Add(integrationEvent)`.
   - Duyệt → tạo `OutboxEvent` → `dbContext.PrepareOutboxEvent(outbox)`.
@@ -110,7 +108,7 @@ Module DbContext (ví dụ `{Module}DbContext`) kế thừa Base, expose `DbSet<
 ## 6. Các bề mặt Dispatch sau Commit
 
 - `IDomainEventPublisher` (contract trong Persistence): side-effect in-process (ví dụ Mediator notification). Resolve động qua `GetService` + Polly (3 lần retry, exponential backoff) trong Base sau commit thành công. Nuốt lỗi (vì đã commit).
-- `IMessagePublisher` (seam Application.Abstractions.Messaging): một method `PublishAsync<T>`. Impl do module Infrastructure (MassTransit adapter) cung cấp. Hiện bus tắt / chưa đăng ký → publisher null → behavior chỉ clear.
+- `IMessagePublisher` (seam Application.Abstractions.Messaging): một method `PublishAsync<T>`. Impl do module Infrastructure (ví dụ MassTransit adapter) cung cấp. Khi bus chưa đăng ký → publisher null → behavior chỉ clear.
 - Nguyên tắc nhất quán: "nếu có thì" (GetService, không throw khi chưa đăng ký).
 
 ## 7. Flow End-to-End (Auto-tx ICommand)
@@ -124,18 +122,18 @@ Thứ tự behavior (đăng ký): Logging → Validation → **IntegrationEventP
 3. Trở lại IntegrationEventPublishBehavior: attempt `IMessagePublisher` cho các IE đã collect (nếu tồn tại).
 4. Thất bại sớm (trước Save hoặc trong handler): rollback → clear list → không có outbox row.
 
-**Explicit transaction** (controller tự quản lý Begin/Commit): TransactionBehavior bỏ qua. Controller chịu trách nhiệm flush/commit; timing publish cần xử lý thủ công hoặc dùng hook tương lai.
+**Explicit transaction** (controller tự quản lý Begin/Commit): TransactionBehavior bỏ qua. Controller chịu trách nhiệm flush/commit; timing publish cần xử lý thủ công hoặc giao cho relay processor.
 
 ## 8. Trách nhiệm theo Layer (Clean Architecture)
 
 - **Domain** (`...Domain`): Chỉ aggregate/entity. Gọi `RaiseDomainEvent`. Không biết gì về OutboxEvent, IMessagePublisher hay broker.
-- **Application** (`...Application`): Handler, validator, mapper. Xây dựng IE (chủ động build hoặc nội suy). Dùng collector. Gọi `PrepareOutboxEvent` thủ công (hiện tại). Phụ thuộc `IMessagePublisher` (seam) và `I*DbContext`. Chịu trách nhiệm behaviors (IntegrationEventPublish + Transaction).
+- **Application** (`...Application`): Handler, validator, mapper. Xây dựng IE (chủ động build hoặc nội suy). Dùng collector. Gọi `PrepareOutboxEvent` cho Integration Event. Phụ thuộc `IMessagePublisher` (seam) và `I*DbContext`. Chịu trách nhiệm behaviors (IntegrationEventPublish + Transaction).
 - **Persistence Building Block**: `OutboxEvent` + Configuration, `OutboxDomainEventInterceptor`, `BaseDbContext` (toàn bộ buffer/flush/tx/post-commit domain publish), contract `IDomainEventPublisher`, helper đăng ký interceptor (Scoped).
-- **Infrastructure** (module): `{Module}DbContext` (kế thừa Base, schema, expose OutboxEvents + Prepare), `I{Module}DbContext`, đăng ký `ITransactionalDbContext`. Sau này: impl `IDomainEventPublisher`, relay processor, wiring `IMessagePublisher` thật.
-- **API**: Đăng ký pipeline (Mediator behaviors), controller (nếu dùng explicit tx), health check, telemetry. (Bus registration hiện đang comment.)
+- **Infrastructure** (module): `{Module}DbContext` (kế thừa Base, schema, expose OutboxEvents + Prepare), `I{Module}DbContext`, đăng ký `ITransactionalDbContext`, impl `IDomainEventPublisher`, relay processor, wiring `IMessagePublisher`.
+- **API**: Đăng ký pipeline (Mediator behaviors), bus registration, controller (nếu dùng explicit tx), health check, telemetry.
 
 ## 9. Tài liệu tham khảo
 
-- AGENTS.md / CLAUDE.md (hướng dẫn Event Bus & Outbox-First, hard rules).
+- `.ai-rules/core/01-project-hard-rules.md` (Messaging Outbox-First) + `.ai-rules/13-background-jobs.md`.
 - Microsoft .NET Architecture guides: "Domain events: design and implementation" (dispatch từ SaveChanges).
 - Transactional Outbox pattern.

@@ -179,7 +179,7 @@ builder.AddOtelTracingAndMetrics();      // Traces + Metrics -> OTLP
    _logger.LogInformation("User {UserId} authenticated successfully", userId);
    ```
 
-   Chi log metadata: `documentId`, `userId`, `action`, `correlationId` (+ `tenantId`/`workspaceId` chi khi du an co multi-tenant/workspace).
+   Chi log metadata: `documentId`, `userId`, `action`, `correlationId` (+ `tenantId`/`workspaceId` chỉ khi dự án có multi-tenant/workspace).
 
 3. **Không** log level `Information` ở hot path (mỗi HTTP request, mỗi DB query). Dùng `Debug`/`Trace` cho event ồn.
 

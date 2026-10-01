@@ -13,7 +13,7 @@ Before writing code, proposing architecture, or making any decision:
 - If a simpler approach exists that meets the stated requirements, recommend it and explain the tradeoffs.
 - If anything is unclear or ambiguous, **stop**. Name the exact point of confusion and ask targeted questions.
 
-**When to apply most rigorously**: Specify, Clarify, and Plan phases. Also before starting any implementation task.
+**When to apply most rigorously**: reading the BA documents and writing the technical plan. Also before starting any implementation task.
 
 ## 2. Simplicity First
 
@@ -42,7 +42,7 @@ When your changes make something unused:
 - Remove only the imports/variables/functions *your changes* rendered dead.
 - Leave all pre-existing dead code untouched.
 
-**Test for compliance**: Every changed line must be directly traceable to a line in the current feature's `tasks.md` or acceptance criteria (or to a specific project hard rule / `.ai-rules` reference file).
+**Test for compliance**: Every changed line must be directly traceable to a task in the approved plan or to an acceptance criterion (or to a specific project hard rule / `.ai-rules` reference file).
 
 **When to apply most rigorously**: Implement phase and any subsequent fixes.
 
@@ -67,9 +67,9 @@ For multi-step work, always publish a brief plan with verification steps:
 2. [Specific action] -> Verify: [exact command or observable outcome]
 ```
 
-Use this format in `plan.md` and `tasks.md`. During implementation, self-verify against the criteria before marking a task complete.
+Use this format in the technical plan and task breakdown. During implementation, self-verify against the criteria before marking a task complete.
 
-**When to apply most rigorously**: Plan, Tasks, Implement, and QA/Security/Review phases.
+**When to apply most rigorously**: Plan, task breakdown, Implement, and QA/Security/Review phases.
 
 ### Verification Gate (evidence before claims)
 

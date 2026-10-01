@@ -1,64 +1,66 @@
 ---
 name: code-review
-description: Review staged changes / PR diff against approved spec + .ai-rules before merge. Use for pre-merge quality gate.
+description: Review staged changes / PR diff against .ai-rules (and the BA documents when available) before merge. Use for the pre-merge quality gate.
 ---
 
 # Skill: code-review
 
-## Nguồn chân lý
+## Source of truth
 
-`.ai-rules/` - đặc biệt `01-clean-architecture.md`, `03-security-tenancy.md`, `04-api-contract.md`, `08-ef-core.md`, `09-error-handling.md`, `14-database-rule.md`, `15-commit-change-log.md`, `16-code-comments.md` và `core/01-project-hard-rules.md`.
+`.ai-rules/` - especially `01-clean-architecture.md`, `03-security-tenancy.md`, `04-api-contract.md`, `08-ef-core.md`, `09-error-handling.md`, `14-database-rule.md`, `15-commit-change-log.md`, `16-code-comments.md`, and `core/01-project-hard-rules.md`.
 
-Skill KHÔNG định nghĩa rule riêng, chỉ **load rule rồi áp lên diff**.
+This skill defines no rules of its own. It **loads the rules and applies them to the diff**.
 
-## Vì sao skill này tồn tại?
+## Why this skill exists
 
-- `implement`/`fix-bug` thường chỉ quan tâm "chạy được chưa". Review hệ thống theo CA / security / error handling / DB / contract / changelog cần chạy **riêng, có báo cáo** trước merge.
-- Diff có thể chạm nhiều layer, agent làm feature dễ mù điểm chéo. Skill này bắt buộc quét **toàn bộ hard-rule liên quan tới diff**.
+- While implementing or fixing a bug, the focus is "does it run yet". A systematic review against CA / security / error handling / DB / contract / changelog must run **separately, with a report**, before merge.
+- A diff can touch many layers, and the agent that built the feature tends to miss cross-cutting issues. This skill forces a scan of **every hard rule relevant to the diff**.
 
-## Đầu vào (input)
+## Input
 
-| Input | Bắt buộc | Ví dụ |
-|-------|----------|-------|
-| Diff | Có | `git diff --staged`, `git diff main...HEAD`, hoặc PR URL |
-| Approved spec | Nếu có spec-kit | `.specify/features/<id>/_01.._05` |
-| Scope hint | Không | `BE-`, `FE-`, `DB-` - để load rule liên quan |
+| Input | Required | Example |
+|-------|----------|---------|
+| Diff | Yes | `git diff --staged`, `git diff main...HEAD`, or a PR URL |
+| BA documents | When available | Use Case, Gherkin, SRS... - to check the diff implements the requirement |
+| Plan file | When available locally | `.plans/<task-id>.md` - see note below |
+| Scope hint | No | `BE-`, `FE-`, `DB-` - to load the relevant rules |
 
-> Không có spec-kit -> review trực tiếp trên diff. Có spec-kit -> load thêm spec để check traceability.
+> **The review must work from the diff alone.** `.plans/` is personal and never committed, so a reviewer on another machine will not have it. When it exists locally, use it as a bonus to check traceability (does the diff fully and only implement the plan). Never block a review because the plan file is missing.
 
 ## Mandatory first step
 
-1. Đọc `core/01-project-hard-rules.md` + `core/00-behavioral-guidelines.md` + `01-clean-architecture.md`.
-2. Nếu có `.specify/features/<id>/` -> load `_01_ba_document_review.md`, `_03_technical_plan.md`, `_04_contracts_and_data_model.md`, `_05_task_breakdown.md`, `_06_implementation_progress.md` (nếu tồn tại).
-3. Xác định diff chạm gì -> load rule chi tiết tương ứng:
-   auth/tenancy -> `03`, API -> `04`, EF/DB -> `08`+`14`, Result/ProblemDetails -> `09`+`02-constants-errors.md`, changelog -> `15`.
+1. Read `core/01-project-hard-rules.md` + `core/00-behavioral-guidelines.md` + `01-clean-architecture.md`.
+2. If BA documents or a local plan file exist -> load them to check acceptance criteria, API contract, and data model.
+3. Determine what the diff touches -> load the matching detailed rules:
+   auth/tenancy -> `03`, API -> `04`, EF/DB -> `08` + `14`, Result/ProblemDetails -> `09` + `02-constants-errors.md`, changelog -> `15`.
 
-## Cách review (không copy rule - chỉ load và áp)
+## How to review (do not copy rules - load and apply them)
 
-Với mỗi file trong diff, check theo **rule file gốc** (ghi `file:line - rule muc X` khi raise finding). Bỏ qua mục không liên quan tới diff.
+For each file in the diff, check against the **original rule file** (cite `file:line - rule section X` when raising a finding). Skip sections unrelated to the diff.
 
-Nhóm rule bắt buộc quét:
+Rule groups that must be scanned:
 
 - CA boundaries + vertical slice folder/namespace
-- Outbox-first nếu có cross-service write
+- Outbox-first when there is a cross-service write
 - DB migration/docs/audit columns/COMMENT
-- Changelog cho behavior/API/DB/shared change
-- `Result`/`Error` tập trung + `ProblemDetails` + HTTP status
-- Tests cho handler/entity chạm tới
-- Security/tenancy/permission theo spec
+- Changelog for behavior/API/DB/shared changes
+- Centralized `Result`/`Error` + `ProblemDetails` + HTTP status
+- Tests for the handlers/entities touched
+- Security/tenancy/permissions per the requirement
 - C# style (`field`, `extension(T)`, file-scoped namespace, casing)
 
-> Danh sách trên chỉ là **gợi ý nhóm**, không phải checklist cố định. Nguồn chân lý là nội dung trong các file `.ai-rules/` tại thời điểm review.
+> The list above is a **grouping hint**, not a fixed checklist. The source of truth is the content of the `.ai-rules/` files at review time.
 
 ## Output
 
-| Có spec-kit | Không có spec-kit |
-|-------------|-------------------|
-| `_07_code_review_report.md` trong `.specify/features/<id>/` với Decision: `CODE_REVIEW_PASSED` \| `APPROVED_WITH_MINOR_NOTES` \| `CHANGES_REQUESTED` \| `BLOCKED`. Không approve nếu còn vi phạm hard-rule. | Báo cáo markdown inline + `gh pr comment` nếu có `gh` CLI |
+An inline markdown report (plus `gh pr comment` when reviewing a PR and the `gh` CLI is available) with a Decision:
+`CODE_REVIEW_PASSED` | `APPROVED_WITH_MINOR_NOTES` | `CHANGES_REQUESTED` | `BLOCKED`.
 
-Mỗi finding: `file:line - rule muc X - severity - đề xuất fix`. Không pass nếu còn hard-rule violation.
+Each finding: `file:line - rule section X - severity - suggested fix`. Never pass while a hard-rule violation remains.
+
+Write the report in the project's output language (see Language Policy in `core/01-project-hard-rules.md`).
 
 ## Stop conditions
 
-- Vi phạm hard-rule chưa fix -> `CHANGES_REQUESTED` hoặc `BLOCKED`.
-- Thiếu migration/docs/changelog/test cho change liên quan -> `CHANGES_REQUESTED`.
+- Unfixed hard-rule violation -> `CHANGES_REQUESTED` or `BLOCKED`.
+- Missing migration/docs/changelog/tests for a related change -> `CHANGES_REQUESTED`.

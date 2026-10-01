@@ -6,12 +6,12 @@ Mọi agent khi load file này phải tuân thủ nghiêm ngặt.
 
 > **Template:** Dự án chọn **một** cơ chế migration - DbUp hoặc EF Core Migrations - và ghi rõ trong `core/01-project-hard-rules.md`. Phần dưới mô tả chi tiết khi dùng **DbUp**; nếu dùng EF Migrations, thay path DbUp bằng `src/Services/{Module}/{Company}.{Module}.Infrastructure/Migrations/`.
 
-- Mọi thay đổi schema/static data phải có DbUp script trong `.dbup/Scripts/{database}/<schema_name>/<Schema|Static>/`.
+- Mọi thay đổi schema/static data phải có DbUp script trong `.dbup/Scripts/{database}/<schema>/<Schema|Static>/`.
 - Tên script dùng số thứ tự 6 chữ số tăng dần theo folder đích: `000123_<short_change_desc>.sql`.
 - Thay đổi cấu trúc DB dùng folder `Schema`; thay đổi dữ liệu cấu hình/static/seed dùng folder `Static`.
-- Mọi thay đổi DB phải cập nhật hoặc tạo `docs/database/{database}.<schema_name>.md`.
+- Mọi thay đổi DB phải cập nhật hoặc tạo `docs/database/{database}.<schema>.md`.
 - File docs database phải khớp SQL thực tế và ghi rõ bảng, cột, constraint, index, static data bị ảnh hưởng.
-- Trong docs database, luôn dẫn đúng path DbUp script liên quan, ví dụ `.dbup/Scripts/{database}/organization/Schema/000004_add_departments.sql`.
+- Trong docs database, luôn dẫn đúng path DbUp script liên quan, ví dụ `.dbup/Scripts/{database}/<schema>/Schema/000004_create_products.sql`.
 - Không chỉ sửa Entity/DbContext/EF configuration mà bỏ qua DbUp script và docs database.
 - Dùng đúng `{database}` (database name của dự án); không dùng schema mặc định `public` cho bảng nghiệp vụ.
 
@@ -29,7 +29,7 @@ Mọi agent khi load file này phải tuân thủ nghiêm ngặt.
 | Boolean | BOOLEAN NOT NULL DEFAULT FALSE | is_active BOOLEAN NOT NULL DEFAULT FALSE | bit, int (0/1) |
 | Dynamic | JSONB NOT NULL DEFAULT '{}' | dynamic_data JSONB NOT NULL DEFAULT '{}' | text JSON, json |
 | Enum | SMALLINT + COMMENT bắt buộc + enum code | priority SMALLINT ... COMMENT '1=Low...' | VARCHAR enum |
-| Audit columns | created_*/updated_*/deleted_* + is_deleted + row_version (+ tenant_id/workspac_id chi khi multi-tenant/workspace) | xem muc 3 | thiếu row_version / is_deleted |
+| Audit columns | created_*/updated_*/deleted_* + is_deleted + row_version (+ tenant_id/workspace_id chỉ khi multi-tenant/workspace) | xem mục 3 | thiếu row_version / is_deleted |
 | Versioning | row_version BIGINT NOT NULL DEFAULT 0 | row_version BIGINT NOT NULL DEFAULT 0 | chỉ xmin |
 | FK column | xxx_id | user_id, workflow_id | user, fkWorkflow |
 | Constraint | fk_<table>_<col>, uq_<table>_<col>, ck_<table>_<meaning>, idx_<table>_<cols> | fk_tasks_assigned_to, uq_users_email | FK_xxx, UX_Email, IX_ |
@@ -44,15 +44,15 @@ Mọi agent khi load file này phải tuân thủ nghiêm ngặt.
 - [ ] Tên dùng snake_case đúng quy tắc (bảng số nhiều, cột xxx_id, constraint fk_/uq_/ck_/idx_).
 - [ ] PK = `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`.
 - [ ] Kiểu dữ liệu đúng (TEXT/VARCHAR(n), NUMERIC(18,2), TIMESTAMPTZ, BOOLEAN NOT NULL DEFAULT, JSONB, SMALLINT + COMMENT enum).
-- [ ] Audit columns đầy đủ (8 cột bắt buộc; tenant_id/workspace_id chi khi du an co multi-tenant/workspace - xem `core/01-project-hard-rules.md`).
+- [ ] Audit columns đầy đủ (8 cột bắt buộc; tenant_id/workspace_id chỉ khi dự án có multi-tenant/workspace - xem `core/01-project-hard-rules.md`).
 - [ ] Có COMMENT ON TABLE và COMMENT ON COLUMN.
 - [ ] FK tạo bằng ALTER TABLE sau khi bảng tồn tại.
 - [ ] Index prefix idx_, partial/covering đúng hậu tố.
 - [ ] Không có transaction logic trong Function/Procedure.
 - [ ] Password = hash column; file = chỉ metadata.
-- [ ] Có DbUp script đúng path `.dbup/Scripts/{database}/<schema_name>/<Schema|Static>/000123_<short_change_desc>.sql`.
+- [ ] Có DbUp script đúng path `.dbup/Scripts/{database}/<schema>/<Schema|Static>/000123_<short_change_desc>.sql`.
 - [ ] Số thứ tự script tăng đúng sequence trong folder đích.
-- [ ] Có cập nhật/tạo `docs/database/{database}.<schema_name>.md`.
+- [ ] Có cập nhật/tạo `docs/database/{database}.<schema>.md`.
 - [ ] Nội dung docs database khớp với SQL thực tế và dẫn đúng path DbUp script.
 - [ ] Comment TABLE + COLUMN (tiếng Việt, rõ nghiệp vụ) + enum meaning.
 - [ ] PL/pgSQL: param p_, biến v_; KHÔNG COMMIT/ROLLBACK bên trong Function/Procedure (quản lý tx ở Application/Handler).
@@ -129,7 +129,7 @@ CREATE INDEX idx_outbox_unprocessed ON outbox_messages (created_at) WHERE proces
 
 ## 3. Audit Columns (bắt buộc)
 
-8 cot bat buoc tren moi bang nghiep vu + `tenant_id` / `workspace_id` chi khi du an co multi-tenant / workspace sharding (xem `core/01-project-hard-rules.md` và `03-security-tenancy.md`):
+8 cột bắt buộc trên mọi bảng nghiệp vụ + `tenant_id` / `workspace_id` chỉ khi dự án có multi-tenant / workspace sharding (xem `core/01-project-hard-rules.md` và `03-security-tenancy.md`):
 
 ```sql
 -- 8 cột luôn có:
@@ -141,10 +141,10 @@ deleted_at    TIMESTAMPTZ,
 deleted_by    varchar(255),
 is_deleted    BOOLEAN NOT NULL DEFAULT FALSE,
 row_version   BIGINT NOT NULL DEFAULT 0
--- + tenant_id UUID / workspace_id UUID  - chi khi du an co multi-tenant / workspace sharding (OPTIONAL ADD-ON)
+-- + tenant_id UUID / workspace_id UUID  - only when the project has multi-tenant / workspace sharding (OPTIONAL ADD-ON)
 ```
 
-- tenant_id / workspace_id: OPTIONAL ADD-ON. Chi them khi du an co multi-tenant / workspace sharding (ghi ro trong core/01-project-hard-rules.md). Lay tu JWT/header dang tin cay.
+- tenant_id / workspace_id: OPTIONAL ADD-ON. Chỉ thêm khi dự án có multi-tenant / workspace sharding (ghi rõ trong core/01-project-hard-rules.md). Lấy từ JWT/header đáng tin cậy.
 - is_deleted: soft delete + query filter.
 - row_version: optimistic concurrency.
 
@@ -156,7 +156,7 @@ row_version   BIGINT NOT NULL DEFAULT 0
 - **Password**: chỉ lưu hash (password_hash).
 - **File**: chỉ lưu metadata (file_name, object_key, mime_type, size_bytes). Không lưu blob trong DB.
 
-## 5. Ví du bang hoan chinh (app.tasks - du an multi-tenant; single-tenant thi bo dong tenant_id)
+## 5. Ví dụ bảng hoàn chỉnh (app.tasks - dự án multi-tenant; single-tenant thì bỏ dòng tenant_id)
 
 > Single-tenant: bo `tenant_id`, doi `uq_tasks_title_per_tenant` thanh `uq_tasks_title`, xoa moi filter theo tenant.
 
@@ -199,5 +199,5 @@ CREATE INDEX idx_tasks_assigned_user_id ON app.tasks(assigned_user_id);
 - **Index composite**: cột selectivity cao (hay filter, phân biệt tốt) để trước (ví dụ customer_id trước status nếu query hay lọc theo customer).
 - **FK creation order**: CREATE TABLEs (PK + cột + UQ/CK cơ bản) -> ALTER TABLE ... ADD CONSTRAINT fk_<table>_<ref>_<col> -> CREATE INDEX idx_.... (xem ví dụ đầy đủ md:4.1).
 - **Comment**: BẮT BUỘC `COMMENT ON TABLE ... IS '...' ` + `COMMENT ON COLUMN ... IS '...' ` (tiếng Việt, ý nghĩa nghiệp vụ rõ). Enum: SMALLINT + COMMENT + enum C# tương ứng.
-- **Audit** (bat buoc cho moi bang nghiep vu): 8 cot `created_*/updated_*/deleted_*` + `is_deleted` + `row_version` (BIGINT concurrency) + `tenant_id`/`workspace_id` chi khi du an co multi-tenant/workspace (OPTIONAL ADD-ON).
+- **Audit** (bắt buộc cho mọi bảng nghiệp vụ): 8 cột `created_*/updated_*/deleted_*` + `is_deleted` + `row_version` (BIGINT concurrency) + `tenant_id`/`workspace_id` chỉ khi dự án có multi-tenant/workspace (OPTIONAL ADD-ON).
 - **Khác**: Password chỉ hash (bcrypt/Argon2); file chỉ metadata (name, object_key, mime, size) - không blob/bytea content; JSONB default '{}'; id = gen_random_uuid(); time = timestamptz; numeric(18,2) cho tiền.

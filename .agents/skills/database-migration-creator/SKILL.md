@@ -5,63 +5,62 @@ description: Create or amend a versioned DB migration script + update docs/datab
 
 # Skill: database-migration-creator
 
-## Nguồn chân lý
+## Source of truth
 
-`.ai-rules/14-database-rule.md` + `.ai-rules/08-ef-core.md`. Skill KHÔNG định nghĩa rule riêng, chỉ điều phối việc áp rule.
+`.ai-rules/14-database-rule.md` + `.ai-rules/08-ef-core.md`. This skill defines no rules of its own. It only orchestrates applying them.
 
-## Vì sao skill này tồn tại?
+## Why this skill exists
 
-- Rule DB dài (~200 dòng: naming, type, PK, audit columns, FK order, COMMENT). Agent tự đọc dễ sót 1-2 mục -> DB lệch chuẩn, phải migration sửa.
-- Skill đảm bảo **mọi lần tạo/sửa migration đều chạy cùng checklist** và **máy làm phần máy làm được**: tìm sequence tiếp theo, đặt đúng path, tạo/cập nhật docs/database.
+- The DB rules are long (~200 lines: naming, types, PK, audit columns, FK order, COMMENT). An agent reading them ad hoc misses one or two items, the schema drifts from the standard, and a corrective migration is needed.
+- This skill guarantees that **every migration runs the same checklist** and that **the machine does the mechanical part**: find the next sequence number, use the right path, create/update the database docs.
 
-## Vì sao KHÔNG copy rule vào skill?
+## Why NOT copy the rules into this skill
 
-Copy -> 2 nguồn chân lý -> drift. Skill chỉ **load rule tại thời điểm chạy**.
+Copying creates two sources of truth, which drift. The skill **loads the rules at run time** instead.
 
-## Đầu vào (input)
+## Input
 
-| Input | Bắt buộc | Ví dụ |
-|-------|----------|-------|
-| Schema đích | Có | `app`, `catalog`, `ordering` |
-| Tên bảng + mô tả nghiệp vụ | Có | `tasks` - Danh sách công việc |
-| Danh sách cột (tên, type, nullable, default, constraint) | Có | `title TEXT NOT NULL`, `priority SMALLINT DEFAULT 2` |
-| Enum (nếu có) | Không | `priority: 1=Low, 2=Medium, 3=High` |
-| FK (bảng tham chiếu) | Không | `assigned_user_id -> users(id)` |
-| Loại thay đổi | Có | `Schema` (tạo/sửa bảng) hay `Static` (seed/config data) |
+| Input | Required | Example |
+|-------|----------|---------|
+| Target schema | Yes | `app`, `catalog`, `ordering` |
+| Table name + business description | Yes | `tasks` - work item list |
+| Column list (name, type, nullable, default, constraint) | Yes | `title TEXT NOT NULL`, `priority SMALLINT DEFAULT 2` |
+| Enum (if any) | No | `priority: 1=Low, 2=Medium, 3=High` |
+| FK (referenced table) | No | `assigned_user_id -> users(id)` |
+| Change type | Yes | `Schema` (create/alter table) or `Static` (seed/config data) |
 
-> Nếu thiếu schema hoặc `{database}` chưa được cấu hình trong `core/01-project-hard-rules.md` / `TEMPLATE_VARS.md` -> hỏi, không đoán.
+> If the schema is unknown or `{database}` is not configured in `core/01-project-hard-rules.md` -> ask, do not guess.
 
 ## Mandatory first step
 
-1. Đọc `.ai-rules/14-database-rule.md` (toàn bộ).
-2. Đọc `.ai-rules/08-ef-core.md` (muc  Migration, Registration).
-3. Đọc `.ai-rules/core/01-project-hard-rules.md` + `TEMPLATE_VARS.md` để biết `{database}` và cơ chế migration của dự án:
-   - **DbUp** -> script tại `.dbup/Scripts/{database}/<schema>/<Schema|Static>/000XXX_*.sql`
-   - **EF Core Migrations** -> `dotnet ef migrations add` trong `Infrastructure/Migrations/`
-   Phần dưới mô tả chi tiết cho **DbUp**; EF Migrations làm tương tự nhưng thay path.
+1. Read `.ai-rules/14-database-rule.md` in full.
+2. Read `.ai-rules/08-ef-core.md` (Migration and Registration sections).
+3. Read `.ai-rules/core/01-project-hard-rules.md` for `{database}` and the project's migration mechanism:
+   - **DbUp** -> script at `.dbup/Scripts/{database}/<schema>/<Schema|Static>/000XXX_*.sql`
+   - **EF Core Migrations** -> `dotnet ef migrations add` into `Infrastructure/Migrations/`
+   The steps below detail **DbUp**; EF Migrations works the same way with a different path.
 
 ## Actions (DbUp)
 
-1. **Cấp số sequence**: `ls .dbup/Scripts/{database}/<schema>/Schema/*.sql` (và `Static/` nếu seed), lấy max + 1, format 6 chữ số `000XXX`. Không đoán, không ghi đè file đã tồn tại.
-2. **Viết script** theo Canonical Table trong `14-database-rule.md`: snake_case, `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, đúng type, 8 audit columns (+ `tenant_id`/`workspace_id` chi khi du an co multi-tenant/workspace - OPTIONAL ADD-ON, xem `core/01-project-hard-rules.md`), FK bằng `ALTER TABLE ADD CONSTRAINT` sau `CREATE TABLE`, index `idx_*`, `COMMENT ON TABLE/COLUMN` tiếng Việt.
-3. **Cập nhật `docs/database/{database}.<schema>.md`** theo muc 7 Database Documentation Procedure trong `14-database-rule.md` (column list, PK, indexes, constraints, audit, Change Log ở cuối). Dẫn đúng path script vừa tạo. Tạo file mới nếu chưa có.
-4. **Không chỉ sửa Entity/DbContext** mà bỏ qua script + docs - cả ba phải đi cùng.
-5. **Validate checklist** cuối `14-database-rule.md` trước khi trả kết quả. Thiếu mục nào -> sửa ngay.
-6. **Verify**: `dotnet build` (Entity/Configuration khớp script) và `dotnet ef dbcontext optimize --check` nếu dự án có compiled model.
+1. **Assign the sequence number**: `ls .dbup/Scripts/{database}/<schema>/Schema/*.sql` (and `Static/` for seed data), take max + 1, format as 6 digits `000XXX`. Do not guess and never overwrite an existing file.
+2. **Write the script** per the Canonical Table in `14-database-rule.md`: snake_case, `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, correct types, the 8 audit columns (plus `tenant_id`/`workspace_id` **only** when the project has multi-tenant/workspace - OPTIONAL ADD-ON, see `core/01-project-hard-rules.md`), FKs via `ALTER TABLE ADD CONSTRAINT` after `CREATE TABLE`, `idx_*` indexes, and `COMMENT ON TABLE/COLUMN` in the project's output language.
+3. **Update `docs/database/{database}.<schema>.md`** per the "Migration + Database Docs" section of `14-database-rule.md` (column list, PK, indexes, constraints, audit, Change Log at the end). Reference the exact path of the script just created. Create the file if it does not exist.
+4. **Never change only the Entity/DbContext** and skip the script + docs - all three go together.
+5. **Validate the "Checklist" section** of `14-database-rule.md` before returning a result. Anything missing -> fix it now.
+6. **Verify**: `dotnet build` (Entity/Configuration matches the script) and `dotnet ef dbcontext optimize --check` if the project uses a compiled model.
 
-## Khi có spec-kit (`.specify/features/<id>/`)
+## When invoked from `implement-feature`
 
-- Nếu `_03_technical_plan.md` / `_06_implementation_progress.md` / `_10_release_readiness.md` tồn tại -> ghi thêm script, docs, cách kiểm chứng, rủi ro vào đó.
-- Không block nếu dự án không dùng spec-kit.
+- The script must match the data model in the approved technical plan. Any deviation -> stop and report back.
+- Report: script path, docs updated, how it was verified, and risks (locking a large table, data backfill...).
 
 ## Output
 
-- 1 script `.sql` đúng path + đúng sequence
-- `docs/database/{database}.<schema>.md` khớp SQL thực tế
-- (nếu có spec-kit) artifact đã cập nhật
+- One `.sql` script at the correct path with the correct sequence number
+- `docs/database/{database}.<schema>.md` matching the actual SQL
 
 ## Stop conditions
 
-- Không xác định được schema hoặc `{database}` -> hỏi.
-- Sequence conflict (file cùng số đã tồn tại) -> tăng số, không ghi đè.
-- Checklist `14-database-rule.md` chưa pass -> không trả kết quả.
+- Schema or `{database}` cannot be determined -> ask.
+- Sequence conflict (a file with the same number exists) -> increment, never overwrite.
+- The `14-database-rule.md` checklist does not pass -> do not return a result.
