@@ -6,13 +6,13 @@
 
 1. **Dùng `AsNoTracking()`** (hoặc NoTrackingWithIdentityResolution) cho mọi query read-only. Module có ReadOnly*DbContext variant (QueryTrackingBehavior.NoTracking) được đăng ký riêng.
 
-2. **Migration**: Dùng **DbUp** (không ef migrations + Database.Migrate trong prod). Mỗi module có folder script trong `.dbup/Scripts/{database}/<schema>/` (Schema + Static). Chạy qua .dbup project.
+2. **Migration**: Dùng đúng cơ chế đã chọn trong `core/01-project-hard-rules.md` - DbUp (script trong `.dbup/Scripts/{database}/<schema>/`, folder `Schema` + `Static`) hoặc EF Core Migrations (`Infrastructure/Migrations/`). Dù chọn cách nào, **không** gọi `Database.Migrate()` tự động khi app startup ở production.
 
 3. **Optimistic Concurrency**: Hỗ trợ qua `RowVersion` (long / bigint/ byte[], concurrency check) trên OutboxEvent và các entity cần. (xmin PostgreSQL native có thể dùng nếu cần).
 
 4. **Explicit transaction**: Hỗ trợ qua `ITransactionalDbContext.BeginTransaction` / CommitAsync / Rollback (Base DbContext của dự án (ví dụ `BaseAppDbContext`) implement). TransactionBehavior chỉ wrap khi chưa có active tx.
 
-5. **Bulk**: Có thể dùng `ExecuteUpdateAsync` / `ExecuteDeleteAsync` khi cần (EF Core hỗ trợ). LƯU Ý: tự quản lý transaction (không dùng implicit tx của EF Core) nếu muốn rollback toàn bộ batch. Xem ví dụ trong backend-coding-standard.md:5.2.
+5. **Bulk**: Có thể dùng `ExecuteUpdateAsync` / `ExecuteDeleteAsync` khi cần (EF Core hỗ trợ). LƯU Ý: tự quản lý transaction (không dùng implicit tx của EF Core) nếu muốn rollback toàn bộ batch. Xem ví dụ trong `docs/backend-coding-standard.md` mục 5.2.
 
 6. **CommandTimeout + resilience**: Đặt trong options (BB Add* methods có thể nhận configure). Base dùng `CreateExecutionStrategy()` + retry cho transient trong implicit tx path.
 
@@ -38,7 +38,7 @@ builder.Services.AddDbContext<TDbContext>((sp, opt) =>
 });
 ```
 
-Có variant read-only (QueryTrackingBehavior.NoTracking). Interceptors: UpdateAuditableEntities + OutboxDomainEvent (Persistence BB). Xem chi tiết + JSONB/PL/pgSQL bên dưới và backend-coding-standard.md:5 + Tiêu chuẩn thiết kế DB.xlsx.
+Có variant read-only (QueryTrackingBehavior.NoTracking). Interceptors: UpdateAuditableEntities + OutboxDomainEvent (Persistence BB). Xem chi tiết + JSONB/PL/pgSQL bên dưới và `docs/backend-coding-standard.md` mục 5.
 
 ## DON'T
 
@@ -52,7 +52,7 @@ Có variant read-only (QueryTrackingBehavior.NoTracking). Interceptors: UpdateAu
    Tăng lock contention, giảm concurrency.
 
 4. **KHÔNG** dùng EF Core cho read path phức tạp.
-   Dùng Dapper + Stored Procedure (xem `ai-rules/02-cqrs-pattern.md`).
+   Dùng Dapper + Stored Procedure (xem `.ai-rules/02-cqrs-pattern.md`).
 
 5. **KHÔNG** viết SQL thuần trong code C# cho read path. Dùng PostgreSQL functions.
 
@@ -118,13 +118,13 @@ protected override void OnConfiguring(DbContextOptionsBuilder o)
 }
 ```
 
-**JSONB + Complex Types (.NET 10)**: Dùng `ComplexProperty` (không phải `OwnsOne` cũ) để hỗ trợ ExecuteUpdate/ExecuteDelete trực tiếp trên JSONB (không shadow key, hiệu năng cao). Xem ví dụ + batch update pattern trong backend-coding-standard.md:5.2.
+**JSONB + Complex Types (.NET 10)**: Dùng `ComplexProperty` (không phải `OwnsOne` cũ) để hỗ trợ ExecuteUpdate/ExecuteDelete trực tiếp trên JSONB (không shadow key, hiệu năng cao). Xem ví dụ + batch update pattern trong `docs/backend-coding-standard.md` mục 5.2.
 
 **PL/pgSQL routines**: Function (SELECT, không tx) vs Procedure (CALL, cho phép tx nội bộ nhưng **KHÔNG** dùng COMMIT/ROLLBACK bên trong - quản lý tx ở Application layer). Prefix: param `p_`, local var `v_`. Gọi an toàn từ C#:
 
 - EF: `dbContext.Database.ExecuteSqlAsync($"CALL schema.proc({p1}, {p2})");` (FormattableString -> parameterized).
 - ADO Npgsql thuần: positional `$1, $2` (tối ưu nhất).
 
-Perf analysis function/procedure: dùng `SET auto_explain.log_min_duration=0; log_analyze=true; log_nested_statements=ON;` rồi chạy routine (xem output trong pgAdmin Messages). Chi tiết + ví dụ proc đầy đủ (FOR UPDATE lock, exception, v_) trong backend-coding-standard.md:6 + Tiêu chuẩn thiết kế DB.xlsx.
+Perf analysis function/procedure: dùng `SET auto_explain.log_min_duration=0; log_analyze=true; log_nested_statements=ON;` rồi chạy routine (xem output trong pgAdmin Messages). Chi tiết + ví dụ proc đầy đủ (FOR UPDATE lock, exception, v_) trong `docs/backend-coding-standard.md` mục 6.
 
-Xem thêm 14-database-rule.md và source Tiêu chuẩn files.
+Xem thêm `14-database-rule.md`.

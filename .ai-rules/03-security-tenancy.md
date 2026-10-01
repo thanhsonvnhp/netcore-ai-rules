@@ -68,11 +68,11 @@ Rules:
 
 ## Entity Tenancy
 
-The reference implementation uses tenant and workspace context through `ICurrentUser`.
+Expose tenant and workspace context through `ICurrentUser` (chỉ khi dự án có multi-tenant/workspace).
 
-The reference module does not apply mandatory tenant filtering to every entity.
+Tenant filtering không bắt buộc áp cho mọi entity - chỉ áp cho entity thực sự thuộc về tenant.
 
-The reference module applies global soft-delete filtering through base DbContext (vi du `BaseAppDbContext`).
+Apply global soft-delete filtering through base DbContext (ví dụ `BaseAppDbContext`).
 
 Tenant filtering is module-specific.
 
@@ -87,7 +87,7 @@ Rules:
 
 ## Global Query Filters
 
-Base DbContext cua du an (vi du `BaseAppDbContext`) applies soft-delete filtering.
+The project's base DbContext (for example `BaseAppDbContext`) applies soft-delete filtering.
 
 Example:
 
@@ -280,9 +280,9 @@ Do not mix audit logs with technical logs.
 
 ## Related Components
 
-* `ICurrentUser` (vi du `{Company}.Application.Abstractions.ICurrentUser` - thay bang namespace thuc te)
+* `ICurrentUser` (for example `{Company}.Application.Abstractions.ICurrentUser` - use the project's real namespace)
 * `CurrentUser` / `CurrentUserBase` (implement trong Infrastructure)
-* Base DbContext cua du an (vi du `BaseAppDbContext`)
+* The project's base DbContext (for example `BaseAppDbContext`)
 * `ConfigureEntityQueryFilter()`
 * `UpdateAuditableEntitiesInterceptor`
 * `[Authorize(Policy = "...")]`

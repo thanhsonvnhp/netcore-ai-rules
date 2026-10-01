@@ -1,0 +1,4 @@
+# Personal per-task plan files - local only, never committed.
+# This file ignores everything in .plans/ except itself so the folder ships with the installer.
+*
+!.gitignore

@@ -1,11 +1,11 @@
 # netcore-ai-rules
 
-Bộ quy tắc và kỹ năng AI dùng chung cho mọi dự án .NET - copy 1 lệnh là chạy. Giúp AI (Claude, Cursor, Copilot...) viết code đúng Clean Architecture, CQRS, EF Core, Outbox-first và convention thống nhất của team.
+Bộ quy tắc và kỹ năng AI dùng chung cho mọi dự án .NET. Giúp AI (Claude, Cursor, Copilot...) viết code đúng Clean Architecture, CQRS, EF Core, Outbox-first và convention thống nhất của team.
 
 ## Có gì bên trong
 
-- `.ai-rules/` - 3 file core luôn load + 16 file on-demand (CA, CQRS, API contract, EF Core, DB, testing, security...)
-- `.agents/skills/` - `code-review`, `database-migration-creator`, `kit-implement`
+- `.ai-rules/` - 3 file core luôn load + 17 file on-demand (CA, CQRS, API contract, EF Core, DB, testing, security...)
+- `.agents/skills/` - `implement-feature`, `database-migration-creator`, `code-review`
 - `docs/` - Vertical Slice + OutboxEvent + chuẩn code BE
 - `.ai-rules/TEMPLATE_VARS.md` - bảng placeholder và 2 ví dụ điền thực tế
 
@@ -61,11 +61,17 @@ curl -fsSL https://raw.githubusercontent.com/thanhsonvnhp/netcore-ai-rules/main/
 FORCE=1 ./install.sh ../<ProjectName>
 ```
 
-> `install.sh` không nhận tham số `-Company`/`-ProjectName`/... như PowerShell. Sau khi cài, mở `.ai-rules/TEMPLATE_VARS.md` và thay các placeholder thủ công (hoặc dùng script replace trong file đó).
+`install.sh` nhận placeholder qua biến môi trường (tương đương tham số của PowerShell):
+
+```bash
+COMPANY=Acme PROJECT_NAME=AcmePlatform DATABASE=acme_db SCHEMA=catalog NAMESPACE=acme ./install.sh ../AcmePlatform
+```
 
 Chi tiết placeholder xem `.ai-rules/TEMPLATE_VARS.md`.
 
 ## Sau khi cài
 
-1. Mở `.ai-rules/core/01-project-hard-rules.md` điền Business Overview + stack thực tế.
-2. Chạy `git add .ai-rules .agents CLAUDE.md AGENTS.md` và commit.
+1. Mở `.ai-rules/core/01-project-hard-rules.md` điền Business Overview + stack thực tế + Language Policy.
+2. Chạy `git add .ai-rules .agents .claude/skills .plans/.gitignore CLAUDE.md AGENTS.md` và commit.
+
+> `.plans/` là nơi agent lưu plan của từng task (`.plans/<task-id>.md`) để không mất khi sang session mới. Plan là file cá nhân trên máy mỗi người - `.plans/.gitignore` đã ignore sẵn toàn bộ, chỉ commit chính file `.gitignore` đó.

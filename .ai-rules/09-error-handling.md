@@ -2,7 +2,7 @@
 
 ---
 
-## Error Strategy: Result Pattern First (thực tế hiện tại)
+## Error Strategy: Result Pattern First
 
 Dự án dùng **Result Pattern** (thư mục `Common/` hoặc shared library nếu modular - ví dụ `{Company}.BuildingBlock.Domain.Shared`) làm primary error handling mechanism. Exception chỉ dùng cho unhandled/system errors.
 
@@ -31,7 +31,7 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
 --- ResultT.cs         # Result<T> : Value
 --- Error.cs           # readonly record struct Error(string Code, string Description, ErrorType Type)
 |                      # static: None, Failure(code,desc), Validation(...), NotFound(...), Conflict(...), Unauthorized(...)
---- ErrorType.cs       # enum Failure | Validation | NotFound | Conflict | Unauthorized (hiện chưa có Forbidden/ServiceUnavailable trong factories)
+--- ErrorType.cs       # enum Failure | Validation | NotFound | Conflict | Unauthorized (thêm Forbidden/ServiceUnavailable nếu dự án cần)
 ```
 
 ---
@@ -71,7 +71,7 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
 
 3. **Map Error.Type sang HTTP status** trong `ResultExtensions` (Api layer):
 
-   | ErrorType | HTTP Status (hiện tại) | Ghi chú |
+   | ErrorType | HTTP Status | Ghi chú |
    |---|---|---|
    | `NotFound` | 404 | |
    | `Validation` | 400 BadRequest (+ ValidationProblemDetails) | Business validation từ Result hoặc FV |
@@ -79,12 +79,11 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
    | `Unauthorized` | 401 | |
    | `Failure` (default) | 500 | |
 
-   (Một số rule cũ ghi 422 cho business validation. Code thực tế map Validation -> 400.)
+   (Business validation map sang 400, không dùng 422 - chọn một và giữ nhất quán toàn dự án.)
 
    **Error code style**:
-   - Current `Error.Code`: "Module.Entity.Reason" (ví dụ "Document.NotFound") - được đưa vào ProblemDetails `extensions["errorCode"]` + ValidationProblemDetails key.
-   - Nguồn gốc xlsx khuyến nghị: UPPER_SNAKE_CASE có nghĩa (RESOURCE_NOT_FOUND, VALIDATION_ERROR, IDEMPOTENCY_KEY_CONFLICT, INCOMMING_DOC_MISSED_ATTACHMENT_FILE, TOKEN_EXPIRED...). File module nên có sheet tổng hợp mã lỗi. Ưu tiên dùng code rõ nghĩa từ sheet khi có thể; giữ consistency với Error factories trong Domain.
-   - HttpCode sheet (bilingual) liệt kê đầy đủ status + custom messageCode tương ứng - dùng làm tham khảo khi định nghĩa Error static (09) và ResultExtensions.
+   - `Error.Code`: "Module.Entity.Reason" (ví dụ "Document.NotFound") - được đưa vào ProblemDetails `extensions["errorCode"]` + ValidationProblemDetails key.
+   - Mã lỗi public trả cho client: UPPER_SNAKE_CASE có nghĩa (RESOURCE_NOT_FOUND, VALIDATION_ERROR, IDEMPOTENCY_KEY_CONFLICT, TOKEN_EXPIRED...) - xem `04-api-contract.md`. Nếu dự án có danh mục mã lỗi tập trung (BA/API spec), ưu tiên dùng mã từ danh mục đó; giữ consistency với Error factories trong Domain.
 
    Body response ví dụ:
 

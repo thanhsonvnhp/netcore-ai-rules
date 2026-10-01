@@ -242,7 +242,7 @@ public sealed record CreateProductCommand(
     : ICommand<ProductId>;
 
 internal sealed class CreateProductCommandHandler(
-    IOrganizationDbContext dbContext,
+    IApplicationDbContext dbContext,
     IIntegrationEventCollector integrationEventCollector,
     ILogger<CreateProductCommandHandler> logger)
     : ICommandHandler<CreateProductCommand, ProductId>
@@ -305,7 +305,7 @@ public sealed record GetProductByIdQuery(Guid ProductId)
     : IQuery<GetProductByIdResponse>;
 
 internal sealed class GetProductByIdQueryHandler(
-    IOrganizationDbContext dbContext)
+    IApplicationDbContext dbContext)
     : IQueryHandler<GetProductByIdQuery, GetProductByIdResponse>
 {
     public async ValueTask<Result<GetProductByIdResponse>> Handle(
@@ -335,7 +335,7 @@ public sealed record GetProductsQuery(long Page, long PageSize)
     : IQueryPaging<GetProductItemResponse>;
 
 internal sealed class GetProductsQueryHandler(
-    IOrganizationReadOnlyDbContext dbContext)
+    IApplicationReadOnlyDbContext dbContext)
     : IQueryHandler<GetProductsQuery, ResultPaged<GetProductItemResponse>>
 {
     public async ValueTask<ResultPaged<GetProductItemResponse>> Handle(
@@ -364,4 +364,4 @@ internal sealed class GetProductsQueryHandler(
 
 * `docs/apply-vertical-slice-clean-architecture-dotnet-api.md`
 * `docs/entity-domain-and-outbox-event.md`
-* `docs/13-background-jobs.md`
+* `.ai-rules/13-background-jobs.md`

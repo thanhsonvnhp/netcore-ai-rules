@@ -1,22 +1,26 @@
 # .NET Core Backend - AI Coding Agent Instructions
 
-> **Template:** Bộ instructions generic cho backend .NET Core (Clean Architecture + CQRS + EF Core). Khi onboard dự án mới: thay `{ProjectName}` trong `core/01-project-hard-rules.md`, điền stack + business overview thực tế.
+> **Template:** A generic instruction set for .NET Core backends (Clean Architecture + CQRS + EF Core). When onboarding a new project: replace the placeholders (see `.ai-rules/TEMPLATE_VARS.md`) and fill in the real stack + business overview in `.ai-rules/core/01-project-hard-rules.md`.
 
-> **Nguyên tắc nguồn chân lý:** **`.ai-rules/` là gốc**. Mọi skill/agent/command khi kích hoạt phải đọc và tuân theo `.ai-rules/`, không định nghĩa rule chồng lấn. Skill chỉ là lớp điều phối - rule nằm ở `.ai-rules/`.
+> **Single source of truth:** **`.ai-rules/` is the root.** Every skill/agent/command must read and follow `.ai-rules/` and must not define overlapping rules. A skill is only an orchestration layer - the rules live in `.ai-rules/`.
 
 ## Quick Start for Any AI Agent
 
 **Always load these 3 core files first** (they contain everything essential):
 
 1. `.ai-rules/core/00-behavioral-guidelines.md` - Mindset & thinking discipline (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution)
-2. `.ai-rules/core/01-project-hard-rules.md` - Non-negotiable rules (Clean Architecture, migration policy, changelog, testing, outbox-first messaging) + project map + stack của dự án
-3. `.ai-rules/core/02-spec-workflow.md` - Artifact-first workflow: core constitution + gate + artifact sequence + primary commands (`/kit-clarify-plan`, `/kit-implement`, `/kit-status`)
+2. `.ai-rules/core/01-project-hard-rules.md` - Non-negotiable rules (Clean Architecture, migration policy, changelog, testing, outbox-first messaging) + project map + language policy + this project's stack
+3. `.ai-rules/core/02-spec-workflow.md` - Workflow: task classification + approval gate + plan file + the flow from BA documents to code + primary skills
 
 ## Stack Rules
 
-See `.ai-rules/core/01-project-hard-rules.md` - authoritative source cho non-negotiable rules (Clean Architecture, migration tool, changelog, `Result<T>`, audit columns, soft delete, outbox-first, testing stack, paths) + business overview + repository map của dự án.
+See `.ai-rules/core/01-project-hard-rules.md` - the authoritative source for non-negotiable rules (Clean Architecture, migration tool, changelog, `Result<T>`, audit columns, soft delete, outbox-first, testing stack, paths) plus the business overview and repository map.
 
-Chi tiết theo chủ đề: xem danh sách rule files trong `.ai-rules/README.md`.
+For topic detail, see the rule file list in `.ai-rules/README.md`.
+
+## Language
+
+Rules in `.ai-rules/` are written in English. The output language (code comments, user-facing messages, logs, chat replies) is defined in the Language Policy section of `core/01-project-hard-rules.md` - the template default is Vietnamese.
 
 ## Safety Rules
 
@@ -27,20 +31,25 @@ Ask developer confirmation before:
 - adding new production dependencies
 - deleting files
 - touching deployment, CI/CD, infrastructure, or secrets
-- expanding scope beyond approved plan
+- expanding scope beyond the approved plan
 
-## Workflow - Artifacts + Gate (khi dự án dùng spec-kit)
+## Workflow - Plan + Approval Gate
 
 **Core rules + gate**: See `.ai-rules/core/02-spec-workflow.md` (always load).
 
-The gate is **not** required for planning, proposal, host Plan mode, or small edits outside an active kit feature. It is only required right before actual production writes inside a tracked feature (when using kit artifact on `.specify/features/*`).
+Business requirements come from the BA. The agent derives the technical plan from those documents, the developer approves it, and only then is production code written.
+
+The gate is **not** required for questions, analysis, proposals, or host Plan mode. It only blocks actual production writes that have no approved plan.
 
 ### Quick Reference
 
-- Workspace: `.specify/features/<task-id>_<title>/` (never commit)
-- Gate: `gates/implementation-approved.md` with `Decision: APPROVED` (token: `APPROVE_IMPLEMENTATION <feature-id>`) - only required when the intent is to apply/write
-- Primary commands: `/kit-clarify-plan`, `/kit-implement`, `/kit-status`
+- Gate: developer approves the plan in chat (for Architectural tasks prefer the token `APPROVE_IMPLEMENTATION <task-id>`)
+- Plan file: `.plans/<task-id>.md` - required for Architectural tasks, local only, never committed
+- Skills (`.agents/skills/`):
+  - `implement-feature` - BA documents -> technical plan -> approval -> code + test + verify
+  - `database-migration-creator` - migration script + database docs for every DB change
+  - `code-review` - pre-merge quality gate
 
 ## Change log
 
-`change-logs` is required for every code change - nếu dự án bật changelog policy (mặc định template: bật). Xem `.ai-rules/15-commit-change-log.md`.
+`change-logs` is required for every code change when the project enables the changelog policy (template default: enabled). See `.ai-rules/15-commit-change-log.md`.

@@ -227,5 +227,5 @@ public void Domain_Should_Not_Reference_Infrastructure()
 }
 
 // Tương tự kiểm tra Application chỉ reference Domain (+ shared layer nếu có).
-// Hiện tại solution chưa có project ArchitectureTests riêng (xem vertical slice design doc checklist).
+// Đặt các test này trong project riêng `{Company}.ArchitectureTests` (xem vertical slice design doc checklist).
 ```

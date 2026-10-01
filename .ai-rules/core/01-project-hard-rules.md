@@ -1,12 +1,12 @@
 # 01 - Project Hard Rules & Project Map (Core - Always Load)
 
-> **Template:** File này là template generic cho mọi dự án .NET Core. Thay các placeholder `{ProjectName}`, `{Company}`, `{Module}`, `{schema}`, `{database}` bằng giá trị dự án thực tế khi onboard (xem `.ai-rules/TEMPLATE_VARS.md`). Stack mặc định bên dưới có thể đổi theo dự án - ghi rõ stack thực tế vào section "Frameworks & Architecture" khi onboard.
+> **Template:** This file is a generic template for any .NET Core project. Replace every `{Placeholder}` with real project values during onboarding (see `.ai-rules/TEMPLATE_VARS.md`). The default stack below may change per project - record the actual stack in the "Frameworks & Architecture" section during onboarding.
 
 ## Business Overview
 
-> Điền mô tả ngắn domain nghiệp vụ của dự án tại đây (2-5 bullet). Không có sẵn - mỗi dự án tự khai báo.
+> Fill in a short description of this project's business domain here (2-5 bullets). Nothing is pre-filled - every project declares its own.
 
-- {Mô tả bounded context / nghiệp vụ chính}
+- {Describe the main bounded context / business domain}
 
 The platform is built as a **modular system**. All services follow **strict Clean Architecture**.
 
@@ -14,24 +14,25 @@ The platform is built as a **modular system**. All services follow **strict Clea
 
 ### Documentation & Rules
 
-- `docs/` - Các guide kiến trúc của dự án (vertical slice, domain events, outbox...). Thêm đường dẫn thực tế khi onboard.
-- `.ai-rules/` - Hard rules and guidelines (architecture, CQRS, security, API contract, testing, EF Core, error handling, etc.). Bộ rule files là unified source cho naming (C# + DB), REST contract, HttpCode + error codes, data types, SQL conventions, EF registration, C# conventions, editorconfig, response format.
+- `docs/` - Project architecture guides (vertical slice, domain events, outbox...). Add the real paths during onboarding.
+- `.ai-rules/` - Hard rules and guidelines (architecture, CQRS, security, API contract, testing, EF Core, error handling, etc.). The rule files are the unified source for naming (C# + DB), REST contract, HTTP status + error codes, data types, SQL conventions, EF registration, C# conventions, editorconfig, and response format.
 
-### Source Code Structure (template - điều chỉnh theo repo thực tế)
+### Source Code Structure (template - adjust to the real repo)
 
-- `{ProjectName}.sln` (hoặc `.slnx`)
-- `src/BuildingBlocks/**` hoặc `src/Shared/**` - Shared libraries (chỉ khi modular/microservices - monolith đặt shared code trong `Infrastructure/Common`, `Shared/` hoặc ngay trong layer) (zero business logic): Authentication, Caching, Domain.Shared, Application.Shared, Persistence, EventBus, Observability.
+- `{ProjectName}.sln` (or `.slnx`)
+- `src/BuildingBlocks/**` or `src/Shared/**` - Shared libraries (only when modular/microservices - a monolith keeps shared code in `Infrastructure/Common`, `Shared/`, or inside the layer itself) with zero business logic: Authentication, Caching, Domain.Shared, Application.Shared, Persistence, EventBus, Observability.
 - `src/Services/**` - Microservices / modules:
-  - `{Module}/{Company}.{Module}.*` (Api/Application/Domain/Infrastructure + Unit/IntegrationTests) - mỗi module là một bounded context.
-- Database scripts: `.dbup/Scripts/{database}/<schema>/<Schema|Static>/` (DbUp) **hoặc** `Migrations/` trong Infrastructure project (EF Core Migrations) - chọn 1 cơ chế duy nhất cho dự án và ghi rõ ở section Database bên dưới.
+  - `{Module}/{Company}.{Module}.*` (Api/Application/Domain/Infrastructure + Unit/IntegrationTests) - each module is one bounded context.
+- Database scripts: `.dbup/Scripts/{database}/<schema>/<Schema|Static>/` (DbUp) **or** `Migrations/` inside the Infrastructure project (EF Core Migrations) - pick exactly one mechanism for the project and record it in the Database section below.
 - Database documentation per schema: `docs/database/{database}.<schema>.md`.
-- `change-logs/YYYY/MM/YYYY-MM-DD.md` - daily changelog entries (fenced YAML) for every commit that has API/contract/DB/shared impact. **Mandatory** (nếu dự án bật changelog policy).
+- `change-logs/YYYY/MM/YYYY-MM-DD.md` - daily changelog entries (fenced YAML) for every commit with API/contract/DB/shared impact. **Mandatory** when the project enables the changelog policy.
+- `.plans/<task-id>.md` - personal working plan per task. Local only, never committed.
 
 ### Database & DevOps
 
-- Mọi database change đi qua migration tool của dự án (DbUp scripts hoặc EF Migrations). **No direct SQL in code** hoặc ad-hoc changes.
-- `change-logs/` - Changelog guide + template (fenced YAML) + daily change log data files (**REQUIRED** cho mọi commit có API/contract/DB/shared impact).
-- `docker-compose.yml` - Quick start: API services + database + cache (nếu dự án dùng).
+- Every database change goes through the project's migration tool (DbUp scripts or EF Migrations). **No direct SQL in code** and no ad-hoc changes.
+- `change-logs/` - Daily change log data files (fenced YAML, template in `15-commit-change-log.md`) - **REQUIRED** for every commit with API/contract/DB/shared impact.
+- `docker-compose.yml` - Quick start: API services + database + cache (when the project uses it).
 
 **Key governance and implementation guides (in .ai-rules/):**
 
@@ -56,77 +57,85 @@ The platform is built as a **modular system**. All services follow **strict Clea
 ## Frameworks & Architecture
 
 - **Clean Architecture**: Dependency direction strictly `Domain <- Application <- Infrastructure <- API`. No violations.
-- **Frameworks** (mặc định template - thay theo dự án): .NET 8+, EF Core, ASP.NET Core Web API.
+- **Frameworks** (template default - change per project): .NET 8+, EF Core, ASP.NET Core Web API.
 - **Domain**: Zero external dependencies, zero NuGet packages, pure C# only.
 - **Application**: Owns commands/queries/handlers/validators + all `I*` abstractions.
-- **Infrastructure**: EF Core, cache (Redis/Valkey nếu cần), auth, outbox, external services.
+- **Infrastructure**: EF Core, cache (Redis/Valkey when needed), auth, outbox, external services.
 - **API**: Controllers, middleware, OpenAPI, health checks, auth, telemetry.
 
 ## Database & Migration (Mandatory)
 
-- Chọn **một** cơ chế migration và ghi rõ vào file này khi onboard:
-  - DbUp: mỗi schema/static data change **requires** a script trong `.dbup/Scripts/{database}/<schema>/<Schema|Static>/`.
-  - EF Core Migrations: mỗi change **requires** một migration trong `{Company}.{Module}.Infrastructure/Migrations/`.
-- **No direct SQL in code** hoặc ad-hoc changes ngoài migration tool.
-- Audit columns bat buoc tren moi bang nghiep vu: 8 cot `created_at`, `created_by`, `updated_at`, `updated_by`, `is_deleted`, `deleted_at`, `deleted_by`, `row_version`; them `tenant_id` / `workspace_id` chi khi du an co multi-tenant / workspace sharding (OPTIONAL ADD-ON, xem `03-security-tenancy.md`). Mac dinh single-tenant thi khong co.
-- Soft delete: set `is_deleted = true` - tránh `DELETE FROM`, `DROP TABLE`, `DROP COLUMN`, `RENAME COLUMN` trên dữ liệu production (soft delete via EF Core Interceptor hoặc query filter trên DbContext).
-- All tables: snake_case names (table_name, column_name, index_name). Column comments theo ngôn ngữ dự án (mặc định template: tiếng Việt).
+- Pick **one** migration mechanism and record it in this file during onboarding:
+  - DbUp: every schema/static data change **requires** a script in `.dbup/Scripts/{database}/<schema>/<Schema|Static>/`.
+  - EF Core Migrations: every change **requires** a migration in `{Company}.{Module}.Infrastructure/Migrations/`.
+- **No direct SQL in code** and no ad-hoc changes outside the migration tool.
+- Audit columns are mandatory on every business table: the 8 columns `created_at`, `created_by`, `updated_at`, `updated_by`, `is_deleted`, `deleted_at`, `deleted_by`, `row_version`. Add `tenant_id` / `workspace_id` **only** when the project has multi-tenant / workspace sharding (OPTIONAL ADD-ON, see `03-security-tenancy.md`). Single-tenant is the default and has neither.
+- Soft delete: set `is_deleted = true`. Avoid `DELETE FROM`, `DROP TABLE`, `DROP COLUMN`, `RENAME COLUMN` on production data (soft delete via an EF Core interceptor or a query filter on the DbContext).
+- All tables: snake_case names (table_name, column_name, index_name). Column comments use the project's output language (see Language Policy below).
 
-## Changelog Requirement (Mandatory nếu dự án bật policy)
+## Changelog Requirement (Mandatory when the policy is enabled)
 
-- API/contract/DB/shared impact changes **require** a daily changelog entry trong `change-logs/`.
-- Dùng task ID (ví dụ `#JIRA-123`) trong title. Commit log cùng code.
-- Follow `.ai-rules/15-commit-change-log.md` và `change-logs/README.md`.
+- API/contract/DB/shared impact changes **require** a daily changelog entry in `change-logs/`.
+- Use the task ID (for example `#JIRA-123`) in the title. Commit the log together with the code.
+- Follow `.ai-rules/15-commit-change-log.md`.
 
 ## Testing
 
-- Unit tests cho Domain và Application layers: xUnit + NSubstitute (hoặc Moq) + FluentAssertions.
-- Integration tests cho API layer: WebApplicationFactory + Testcontainers (database/cache thực).
-- Không có UI test nếu dự án backend-only.
+- Unit tests for the Domain and Application layers: xUnit + NSubstitute (or Moq) + FluentAssertions.
+- Integration tests for the API layer: WebApplicationFactory + Testcontainers (real database/cache).
+- No UI tests for a backend-only project.
 
 ## Messaging (Outbox-First)
 
-- Dùng **transactional Outbox** cho reliable "publish after commit" khi dự án có messaging.
-- Code chỉ depend vào `IMessagePublisher` (abstraction trong Application) - implementation (MassTransit, RabbitMQ client, Azure Service Bus...) nằm ở Infrastructure và **thay thế được**.
-- Integration Event publish ở cuối Mediator pipeline (xem `13-background-jobs.md`).
+- Use a **transactional Outbox** for reliable "publish after commit" when the project has messaging.
+- Code depends only on `IMessagePublisher` (an abstraction in Application). The implementation (MassTransit, RabbitMQ client, Azure Service Bus...) lives in Infrastructure and **must be replaceable**.
+- Integration Events are published at the end of the Mediator pipeline (see `13-background-jobs.md`).
 
-## Language Preference
+## Language Policy
 
-- Mặc định template: **tiếng Việt** cho user-facing message text, code comments giải thích logic, và log messages. Đổi theo team dự án khi onboard.
-- English acceptable cho technical identifiers và internal exception messages.
+Two different things - do not conflate them:
+
+| | Language | Applies to |
+|---|---|---|
+| **Rule language** | English | `.ai-rules/**` - instructions the AI agent reads |
+| **Output language** | **Vietnamese** (template default) | Code comments explaining logic, user-facing messages, log messages, chat replies |
+
+- Change the output language above during onboarding if the team uses another language. This is the single place that defines it - other rule files refer here.
+- English is always used for technical identifiers, type names, and internal exception messages, regardless of the output language.
+- Rules are written in English because identifiers are English and it costs fewer tokens. This does **not** change the output language - an English rule still produces Vietnamese comments when that is the configured output language.
 
 ## Common Commands
 
-**Build and run solution** (thay `{ProjectName}` / `{Module}`):
+**Build and run the solution**:
 
 ```powershell
 # Format code (required before commit)
 dotnet format {ProjectName}.sln
 dotnet format {ProjectName}.sln --verify-no-changes
 
-# Build toàn solution
+# Build the whole solution
 dotnet build {ProjectName}.sln
 # Run all unit and integration tests
 dotnet test {ProjectName}.sln
-# Run unit tests cho 1 module
+# Run unit tests for one module
 dotnet test src/Services/{Module}/{Company}.{Module}.UnitTests/{Company}.{Module}.UnitTests.csproj
-# Run integration tests cho 1 module
+# Run integration tests for one module
 dotnet test src/Services/{Module}/{Company}.{Module}.IntegrationTests/{Company}.{Module}.IntegrationTests.csproj
 
-# Docker infrastructure cho local dev (nếu dự án dùng)
+# Docker infrastructure for local dev (when the project uses it)
 docker compose up -d
-# Run 1 API project
+# Run one API project
 dotnet run --project src/Services/{Module}/{Company}.{Module}.Api/{Company}.{Module}.Api.csproj
 ```
 
-**Migration example** - DbUp (nếu dự án dùng DbUp):
+**Migration example** - DbUp (when the project uses DbUp):
 
 ```powershell
 cd .dbup
 dotnet run -- "Host=localhost;Port=5432;Database={database};Username=postgres;Password=postgres" {database} {schema} {schema}
 ```
 
-Hoặc EF Core Migrations:
+Or EF Core Migrations:
 
 ```powershell
 dotnet ef migrations add <Name> --project src/Services/{Module}/{Company}.{Module}.Infrastructure
@@ -134,34 +143,40 @@ dotnet ef database update --project src/Services/{Module}/{Company}.{Module}.Inf
 ```
 
 **Change log**
-Mọi change phải được document trong `change-logs/YYYY/MM/YYYY-MM-DD.md` (append cuối file) nếu dự án bật changelog policy.
+Every change must be documented in `change-logs/YYYY/MM/YYYY-MM-DD.md` (append at the end of the file) when the project enables the changelog policy.
 
-**Code comment**:
-MUST follow `16-code-comments.md` và mục Code comment trong `01-clean-architecture.md`.
+**Code comments**
+MUST follow `16-code-comments.md` and the Code comment section in `01-clean-architecture.md`.
 
 ## Error Handling
 
-- Handlers trả `Result<T>` / `Result` / `ResultPaged<T>` - không throw exception cho expected errors. Có thể throw `AppErrorFailureException` (hoặc exception tương đương của dự án) trong business logic nếu pattern dự án cho phép.
-- API map errors qua `ResultExtensions` -> `ProblemDetails` với user messages theo ngôn ngữ dự án (dùng `ToApiResponse` để convert `Result<T>` / `Result` / `ResultPaged<T>` sang API response).
-- Không lộ stack traces trong `ProblemDetails` ở non-dev environments.
+- Handlers return `Result<T>` / `Result` / `ResultPaged<T>` - do not throw exceptions for expected errors. Throwing `AppErrorFailureException` (or the project's equivalent) inside business logic is acceptable when the project's pattern allows it.
+- The API maps errors through `ResultExtensions` -> `ProblemDetails` with user messages in the project's output language (use `ToApiResponse` to convert `Result<T>` / `Result` / `ResultPaged<T>` into an API response).
+- Never expose stack traces in `ProblemDetails` outside development environments.
 
 ## Observability
 
-- Inject `ILogger<>` -> Console -> OTel Collector -> backend observability của dự án (Elastic APM, Grafana, Jaeger, Azure Monitor, Aspire Dashboard...). Chú ý Log Level: Debug, Info, Warning, Error (xem `06-observability.md`).
+- Inject `ILogger<>` -> Console -> OTel Collector -> the project's observability backend (Elastic APM, Grafana, Jaeger, Azure Monitor, Aspire Dashboard...). Mind the log levels: Debug, Info, Warning, Error (see `06-observability.md`).
 
-## Frontend Stack (chỉ điền nếu dự án có frontend)
+## Frontend Stack (fill in only when the project has a frontend)
 
-- Mặc định template để trống. Ví dụ phổ biến: React + Vite + Tailwind CSS + component library (Mantine/shadcn) + TanStack Query.
+- Empty by default in the template. Common example: React + Vite + Tailwind CSS + a component library (Mantine/shadcn) + TanStack Query.
 - No business logic in UI components.
 - Vitest + Testing Library (frontend tests).
 
-## Paths Reference (template - điều chỉnh theo repo thực tế)
+## Paths Reference (template - adjust to the real repo)
 
 | Resource            | Path |
 |---------------------|------|
-| Feature workspace   | `.specify/features/<task-id>_<title>/` (nếu dùng spec-kit) |
+| Personal task plan  | `.plans/<task-id>.md` (local only, never committed) |
 | Changelog           | `change-logs/YYYY/MM/YYYY-MM-DD.md` |
 | Database docs       | `docs/database/{database}.<schema>.md` |
 | DbUp scripts        | `.dbup/Scripts/{database}/<schema>/<Schema\|Static>/` |
-| AI rules (core)     | `.ai-rules/core/` (always load first 3 files) |
+| AI rules (core)     | `.ai-rules/core/` (always load all 3 files first) |
 | AI rules (detailed) | `.ai-rules/` |
+
+## Placeholders in these rules
+
+- `<placeholder>` (angle brackets) varies per case - for example `<schema>` differs per module. Substitute the right value each time; never treat it as fixed.
+- A `{Placeholder}` still present after onboarding (typically `{Module}`, `{ServiceName}`, `{Aggregate}`) is a generic reference: substitute the module/service/aggregate you are working on.
+- Full list and meanings: `.ai-rules/TEMPLATE_VARS.md`.

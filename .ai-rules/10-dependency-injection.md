@@ -62,7 +62,7 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    services.AddScoped<IIntegrationEventCollector, IntegrationEventCollector>();
    ```
 
-6. **Keyed Services** (.NET 8+) có thể dùng khi cần nhiều impl (chưa thấy nhiều trong Organization hiện tại).
+6. **Keyed Services** (.NET 8+) có thể dùng khi cần nhiều impl của cùng một interface.
 
 ## DON'T
 
@@ -130,7 +130,7 @@ public static class DependencyInjection
     {
         services.AddMediator(options =>
         {
-            options.Namespace = "{Namespace}.Application";
+            options.Namespace = "{Company}.{Module}.Application";
             options.ServiceLifetime = ServiceLifetime.Scoped;
         });
 
