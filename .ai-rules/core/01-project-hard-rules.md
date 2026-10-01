@@ -57,7 +57,7 @@ The platform is built as a **modular system**. All services follow **strict Clea
 ## Frameworks & Architecture
 
 - **Clean Architecture**: Dependency direction strictly `Domain <- Application <- Infrastructure <- API`. No violations.
-- **Frameworks** (template default - change per project): .NET 8+, EF Core, ASP.NET Core Web API.
+- **Frameworks** (template default - record the actual stack per project): current .NET LTS (minimum .NET 8), EF Core, ASP.NET Core Web API.
 - **Domain**: Zero external dependencies, zero NuGet packages, pure C# only.
 - **Application**: Owns commands/queries/handlers/validators + all `I*` abstractions.
 - **Infrastructure**: EF Core, cache (Redis/Valkey when needed), auth, outbox, external services.

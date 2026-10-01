@@ -16,7 +16,7 @@ src/Services/{Module}/
       Constants.cs      <- namespace {Company}.{Module}.Application
 ```
 
-Example (sample module `Acme.Catalog` - replace with the project's real module):
+Example below uses a sample module `Acme.Catalog` (e.g. a Catalog domain) - replace with the project's real module:
 
 ```
 src/Services/Catalog/

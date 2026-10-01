@@ -50,7 +50,7 @@ Do **NOT use MediatR (Jimmy Bogard).**
    ```csharp
    services.AddMediator(options =>
    {
-       options.Namespace = "Acme.Catalog.Application";
+       options.Namespace = "Acme.Catalog.Application"; // e.g. sample Catalog module - use the project's real namespace
        options.ServiceLifetime = ServiceLifetime.Scoped;
    });
    services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());

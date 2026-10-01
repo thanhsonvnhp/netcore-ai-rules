@@ -77,6 +77,9 @@ Do not use a "store an OutboxMessage + poll with a separate BackgroundService de
 
 ## Illustrative example
 
+> Example below uses a sample `Product` aggregate (e.g. a Catalog module)
+> - replace with the project's real aggregates.
+
 ```csharp
 // Domain (raises only)
 product.RaiseDomainEvent(new ProductCreatedDomainEvent(product.Id, product.Name, product.Price));

@@ -140,6 +140,7 @@ services.AddOptions<RabbitMqOptions>()
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Database={database}_dev;Username=postgres;Password=postgres"
+    // SQL Server equivalent (e.g.): "Server=localhost;Database={database}_dev;User Id=sa;Password=...;TrustServerCertificate=True"
   }
 }
 ```

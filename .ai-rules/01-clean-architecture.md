@@ -22,7 +22,7 @@ Domain <- Application <- Infrastructure <- API
    - Organize by **use-case/feature** (Vertical Slice) inside the CA boundary layers.
    - Application: `Features/{Area}/Commands/{UseCase}Command/` (Command.cs + Validator + Handler + Response) or `Features/{Area}/Queries/{UseCase}Query/` (Query.cs + Handler + Response + Mapping). The file name must have the `Command` or `Query` suffix.
    - Domain: `Aggregates/{Aggregate}/` (entity + events + errors + strong ID value objects).
-   - Example (sample module `Acme.Catalog` - replace with the project's real module):
+   - Example below uses a sample module `Acme.Catalog` (e.g. a Catalog domain) - replace with the project's real module:
 
     ```text
     Acme.Catalog.Domain/Aggregates/Products/Product.cs

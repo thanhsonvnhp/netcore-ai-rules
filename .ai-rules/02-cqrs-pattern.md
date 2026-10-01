@@ -43,11 +43,14 @@ Do not use MediatR.
 | Update       | EF Core with Change Tracking                   | Load aggregate, call domain method, save changes     |
 | Delete       | EF Core with Change Tracking                   | Use domain method; prefer soft delete when supported |
 | Simple read  | EF Core ReadOnlyDbContext                      | Use `AsNoTracking()` and map to DTO                  |
-| Complex read | EF Core LINQ projection or PostgreSQL function | Project directly to DTO                              |
+| Complex read | EF Core LINQ projection or DB function (e.g. PG function / SQL proc)   | Project directly to DTO                  |
 
 ---
 
 ## Vertical Slice Structure
+
+> Illustrative example domain: all `Product`/`Catalog` names below are a sample
+> (e.g. a Catalog module) - replace with the project's real aggregates.
 
 Each API endpoint or use case has its own feature folder:
 
@@ -158,7 +161,7 @@ Complex query handlers use direct DTO projection:
 ```text
 EF Core LINQ projection
 or
-PostgreSQL function
+a database function (e.g. PostgreSQL function, SQL Server procedure)
 -> DTO
 -> Return Result<TResponse>
 ```
@@ -214,7 +217,7 @@ Paged query handlers return `ResultPaged<T>` when the project abstraction requir
 
 Do not use MediatR.
 
-Do not concatenate raw SQL strings in query handlers - use parameterized queries, DTO projection, or PostgreSQL functions.
+Do not concatenate raw SQL strings in query handlers - use parameterized queries, DTO projection, or a database function (e.g. PostgreSQL function, SQL Server procedure).
 
 Do not use Dapper for write operations.
 
@@ -232,7 +235,7 @@ Do not use long EF Core `Include()` chains in query handlers.
 
 ---
 
-## Command Example
+## Command Example (e.g. a `Product` aggregate in a sample Catalog module)
 
 ```csharp
 public sealed record CreateProductCommand(

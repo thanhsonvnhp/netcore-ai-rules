@@ -1,4 +1,10 @@
-# Database Standards - PostgreSQL
+# Database Standards - PostgreSQL-first (SQL Server equivalents inline)
+
+> Illustrative examples below use PostgreSQL syntax (the template's primary database).
+> SQL Server projects apply the same rules with equivalent types: `UUID` -> `UNIQUEIDENTIFIER
+> DEFAULT NEWID()`, `TIMESTAMPTZ` -> `DATETIME2`, `JSONB` -> `NVARCHAR(MAX)` (JSON),
+> `TEXT` -> `NVARCHAR(MAX)`, `BOOLEAN` -> `BIT`, `COMMENT ON` -> extended properties.
+> Record the project's database in `core/01-project-hard-rules.md`.
 
 Every agent loading this file must follow it strictly.
 

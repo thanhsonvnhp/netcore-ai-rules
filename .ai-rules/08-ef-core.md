@@ -16,7 +16,7 @@
 
 6. **CommandTimeout + resilience**: set it in options (the building block's `Add*` methods can accept a configure callback). The base DbContext uses `CreateExecutionStrategy()` + retry for transient failures on the implicit tx path.
 
-**Actual registration** (a singleton `NpgsqlDataSource` is mandatory to avoid pool fragmentation):
+**Actual registration (PostgreSQL example; SQL Server projects use `UseSqlServer()` with a pooled connection instead)** - a singleton `NpgsqlDataSource` is mandatory to avoid pool fragmentation:
 
 ```csharp
 // AppContext flag (timestamp behavior)
@@ -52,10 +52,10 @@ There is a read-only variant (`QueryTrackingBehavior.NoTracking`). Interceptors:
    It increases lock contention and reduces concurrency.
 
 4. Do **NOT** write convoluted EF Core LINQ for a read path with heavy joins/aggregation that EF cannot translate efficiently.
-   Prefer a PostgreSQL function (see `.ai-rules/02-cqrs-pattern.md` Query Rules), or Dapper + a stored procedure as a non-mandatory alternative.
+   Prefer a database function (e.g. a PostgreSQL function, or a SQL Server procedure - see `.ai-rules/02-cqrs-pattern.md` Query Rules), or Dapper + a stored procedure as a non-mandatory alternative.
    Never concatenate raw SQL strings in C# code - use parameterized queries.
 
-5. Do **NOT** write raw SQL in C# code for the read path. Use PostgreSQL functions.
+5. Do **NOT** write raw SQL in C# code for the read path. Use a database function (e.g. a PostgreSQL function, or a SQL Server procedure).
 
 6. Do **NOT** ignore `DbUpdateConcurrencyException`.
    Handle it explicitly: reload the entity -> apply conflict resolution -> return 409 Conflict to the client.
