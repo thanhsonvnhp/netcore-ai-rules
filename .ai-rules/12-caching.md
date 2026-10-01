@@ -4,26 +4,30 @@
 
 ## DO
 
-1. **Dùng caching tập trung**: `AddAppCaching  // tên thực tế do dự án đặt, ví dụ Add{ProjectName}Caching(configuration)` đăng ký `ICacheService` (và HybridCache nếu có). Impl dùng Redis/Valkey khi multi-instance hoặc `IMemoryCache` cho monolith single-instance.
-   - Tránh `IMemoryCache` cho data cần consistent giữa instances.
+1. **Use centralized caching**: `AddAppCaching` registers `ICacheService` (and HybridCache when available). The actual method name is chosen by the project, e.g. `Add{ProjectName}Caching(configuration)` (see `10-dependency-injection.md`). Implementation: Redis/Valkey for multi-instance deployments, `IMemoryCache` for a single-instance monolith.
+   - Avoid `IMemoryCache` for data that must stay consistent across instances.
 
-2. **Áp dụng Cache-Aside Pattern** - không bao giờ để cache là nguồn sự thật duy nhất:
+2. **Apply the Cache-Aside Pattern** - the cache is never the sole source of truth:
 
    ```
-   1. Đọc từ cache
-   2. Cache miss -> đọc từ DB
-   3. Ghi vào cache với TTL
-   4. Trả về data
+   1. Read from cache
+   2. On cache miss -> read from DB
+   3. Write to cache with a TTL
+   4. Return the data
    ```
 
-3. **Cache key phải include TenantId** để tránh cross-tenant data leak (trừ các thông tin public/global):
+3. **Scope the cache key to the owner**: when the project has multi-tenant/workspace (see `core/01-project-hard-rules.md`), the key must include `TenantId`/`workspaceId` so tenants cannot read each other's data. For single-tenant or public/global data, scope by owner only (`user:` / `public:`) or not at all:
 
    ```csharp
+   // multi-tenant
    var key = CacheKeys.Document(_tenantContext.TenantId, documentId);
    // -> "tenant:{tenantId}:doc:{documentId}"
+   // single-tenant / global
+   var key = CacheKeys.Document(documentId);
+   // -> "doc:{documentId}"
    ```
 
-4. **Luôn đặt TTL rõ ràng** - không bao giờ cache không có expiry:
+4. **Always set an explicit TTL** - never cache without an expiry:
 
    ```csharp
    var options = new DistributedCacheEntryOptions
@@ -32,50 +36,50 @@
    };
    ```
 
-5. **Invalidate cache chủ động** sau khi write:
+5. **Invalidate the cache proactively** after a write:
 
    ```csharp
    await _cache.RemoveAsync(CacheKeys.Document(tenantId, documentId), ct);
    ```
 
-6. **Inject ICacheService** (từ BB) vào Handler/Query cho cache-aside.
+6. **Inject ICacheService** (from the building block) into handlers/queries for cache-aside reads.
 
-7. **Serialize dùng System.Text.Json** (mặc định của framework).
+7. **Serialize with System.Text.Json** (the framework default).
 
-8. **Graceful fallback**: log warning + đọc từ nguồn thật (DB) khi cache down.
+8. **Graceful fallback**: log a warning and read from the real source (DB) when the cache is down.
 
 ## DON'T
 
-1. **KHÔNG** cache data nhạy cảm (nội dung văn bản mật, thông tin PII) mà không mã hóa.
+1. Do **NOT** cache sensitive data (confidential document content, PII) without encryption.
 
-2. **KHÔNG** cache cross-tenant data - mỗi cache entry phải scoped theo TenantId:
+2. Do **NOT** cache one tenant's data under another tenant's key - every entry must respect the owner scoping in (3) above. For single-tenant projects there is nothing to scope, so do not add fake tenant ids just to match the multi-tenant examples.
 
    ```csharp
-   // [FAIL] WRONG - key không có tenantId
+   // [FAIL] WRONG in a multi-tenant project - no tenant scope
    var key = $"documents:{id}";
    // [OK] CORRECT
    var key = $"tenant:{tenantId}:documents:{id}";
    ```
 
-3. **KHÔNG** cache mãi mãi (TTL = null) cho data thay đổi thường xuyên.
+3. Do **NOT** cache data with a null TTL when the data changes over time.
 
-4. **KHÔNG** để cache miss block toàn bộ request nếu Redis down - implement fallback.
+4. Do **NOT** let a cache miss block the whole request when Redis is down - implement a fallback.
 
-5. **KHÔNG** cache kết quả query phân trang động (vì filter/page thay đổi liên tục) - chỉ cache entity đơn lẻ theo ID.
+5. Do **NOT** cache paginated query results (filters/pages change constantly) - cache single entities by ID.
 
-6. **KHÔNG** dùng `IMemoryCache` cho data cần consistent giữa nhiều instance API.
+6. Do **NOT** use `IMemoryCache` for data that must stay consistent across API instances.
 
 ## TTL Reference
 
-| Loại data | TTL gợi ý |
+| Data type | Suggested TTL |
 |---|---|
-| Master data (danh mục, cấu hình) | 60 phút |
-| Thông tin user/tenant | 15 phút |
-| Document detail | 10 phút |
-| Cây tổ chức (ltree) | 30 phút |
-| Token/session | = thời gian hết hạn token |
+| Master data (catalogs, config) | 60 minutes |
+| User/tenant info | 15 minutes |
+| Document detail | 10 minutes |
+| Org tree (ltree) | 30 minutes |
+| Token/session | = token expiry time |
 
-## Ví dụ minh họa
+## Illustrative example
 
 ```csharp
 // -- Infrastructure/Caching/ICacheService.cs
@@ -90,8 +94,13 @@ public interface ICacheService
 // -- Infrastructure/Caching/CacheKeys.cs
 public static class CacheKeys
 {
+    // multi-tenant overload
     public static string Document(Guid tenantId, Guid docId) =>
         $"tenant:{tenantId}:doc:{docId}";
+
+    // single-tenant overload
+    public static string Document(Guid docId) =>
+        $"doc:{docId}";
 
     public static string OrgTree(Guid tenantId) =>
         $"tenant:{tenantId}:org-tree";

@@ -9,13 +9,13 @@ The project uses `Mediator` source generator packages:
 <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
 ```
 
-Use local messaging abstractions from `Application.Shared` hoặc `{Company}.BuildingBlock.Application.Shared` (nếu modular) to wrap Mediator request types and return:
+Use local messaging abstractions from `Application.Shared` or `{Company}.BuildingBlock.Application.Shared` (when modular) to wrap Mediator request types and return:
 
 * `Result`
 * `Result<T>`
 * `ResultPaged<T>`
 
-This is base warapping for `IRequest<Result>` and `IRequest<Result<T>>` to avoid direct dependency on MediatR in the application layer:
+This is the base wrapping for `IRequest<Result>` and `IRequest<Result<T>>` to avoid a direct dependency on MediatR in the application layer:
 
 ```csharp
 public interface ICommand : IRequest<Result> { }
@@ -214,7 +214,7 @@ Paged query handlers return `ResultPaged<T>` when the project abstraction requir
 
 Do not use MediatR.
 
-Do not use raw SQL in command handlers.
+Do not concatenate raw SQL strings in query handlers - use parameterized queries, DTO projection, or PostgreSQL functions.
 
 Do not use Dapper for write operations.
 
@@ -226,7 +226,7 @@ Do not map domain aggregates manually after loading large object graphs.
 
 Do not share handlers between different use cases.
 
-Do not make Dapper or stored procedures mandatory for read paths.
+Do not make Dapper or stored procedures mandatory for read paths (they are an acceptable alternative for a genuinely complex read - see `.ai-rules/08-ef-core.md` DON'T #4).
 
 Do not use long EF Core `Include()` chains in query handlers.
 

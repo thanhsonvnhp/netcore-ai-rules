@@ -4,14 +4,14 @@
 
 ## DO
 
-1. **Unit Test** bao phủ:
-   - Domain entity methods và invariants
-   - Value Object creation và validation
+1. **Unit Test coverage**:
+   - Domain entity methods and invariants
+   - Value Object creation and validation
    - Domain Event raising
    - FluentValidation validators
-   Không cần mock DB - Domain không phụ thuộc DB.
+   No DB mocking needed - Domain has no DB dependency.
 
-2. **Integration Test** chạy với PostgreSQL  trong Testcontainers-dotnet:
+2. **Integration Test** runs against PostgreSQL in Testcontainers-dotnet:
 
    ```csharp
    var postgres = new PostgreSqlBuilder("18-alpine")
@@ -20,42 +20,42 @@
    await postgres.StartAsync();
    ```
 
-3. **Architecture Test** (Will be implemented): Tạo project riêng `{Company}.{Module}.ArchitectureTests` (hoặc top-level) dùng NetArchTest/ArchUnitNET để enforce Domain không reference Infrastructure, Application chỉ reference Domain, v.v. (nếu dự án có architecture tests).
+3. **Architecture Test** (add when the project needs it): create a dedicated project `{Company}.{Module}.ArchitectureTests` (or top-level) using NetArchTest/ArchUnitNET to enforce that Domain does not reference Infrastructure, Application only references Domain, etc.
 
-4. **Contract Test** cho event: verify schema (Pact hoặc snapshot) - áp dụng khi bus re-enable và có consumers thực.
+4. **Contract Test** for events: verify the schema (Pact or snapshot) - apply once the bus is enabled and real consumers exist.
 
-5. **Cấu trúc test thực tế (per-module)**:
+5. **Real per-module test structure**:
 
    ```
    {Company}.{Module}.UnitTests/
-     Domain/ (ProductTests, ResultTests - không cần DB)
-     Application/ (handler tests với fakes)
+     Domain/ (ProductTests, ResultTests - no DB needed)
+     Application/ (handler tests with fakes)
    {Company}.{Module}.IntegrationTests/
      Infrastructure/ (WebAppFactory)
      Products/ (endpoint tests - Testcontainers postgres)
    ```
 
-   UnitTests chỉ reference Domain + Application (không Infrastructure). Integration dùng DB thật (Testcontainers), clean sau test (tx rollback hoặc reset container).
+   UnitTests reference only Domain + Application (never Infrastructure). Integration tests use a real DB (Testcontainers), cleaned up after each test (transaction rollback or container reset).
 
-6. **Mỗi Integration Test** phải clean up DB sau khi chạy:
-   - Dùng transaction rollback: `await using var tx = await db.BeginTransactionAsync()` -> `await tx.RollbackAsync()`
-   - Hoặc reset container sau mỗi test class.
+6. **Every Integration Test** must clean up the DB after it runs:
+   - Transaction rollback: `await using var tx = await db.BeginTransactionAsync()` -> `await tx.RollbackAsync()`
+   - Or reset the container after each test class.
 
 ## DON'T
 
-1. **KHÔNG** dùng `UseInMemoryDatabase()` cho Integration Test thực (chỉ dùng cho một số unit test đặc biệt của Persistence/Base nếu cần; InMemory thiếu transaction đầy đủ, jsonb, v.v.).
+1. Do **NOT** use `UseInMemoryDatabase()` for real Integration Tests (reserve it for specific Persistence/Base unit tests when needed; InMemory lacks full transaction support, jsonb, etc.).
 
-2. **KHÔNG** mock `DbContext` trong Integration Test - dùng DB thật (Testcontainers).
+2. Do **NOT** mock `DbContext` in Integration Tests - use a real DB (Testcontainers).
 
-3. **KHÔNG** đặt business/domain logic test vào Integration Test.
+3. Do **NOT** put business/domain logic tests inside Integration Tests.
 
-4. **KHÔNG** bỏ qua Architecture Test (nên thêm project để enforce CA rules).
+4. Do **NOT** skip Architecture Tests (add a project to enforce CA rules).
 
-5. **KHÔNG** chia sẻ state giữa tests (không shared static, cleanup DB sau mỗi test/class).
+5. Do **NOT** share state between tests (no shared static state; clean up the DB after every test/class).
 
-6. **KHÔNG** reference Infrastructure trong Unit Tests (chỉ Domain + Application).
+6. Do **NOT** reference Infrastructure from Unit Tests (Domain + Application only).
 
-## Ví dụ minh họa
+## Illustrative example
 
 ```csharp
 // -- Architecture Test
@@ -70,7 +70,7 @@ public void Domain_Should_Not_Reference_Infrastructure()
     Assert.True(result.IsSuccessful);
 }
 
-// -- Unit Test - Domain logic không cần DB
+// -- Unit Test - Domain logic needs no DB
 [Fact]
 public void Document_Publish_Should_Raise_DocumentPublishedEvent()
 {
@@ -87,7 +87,7 @@ public void Document_Publish_Should_Raise_DocumentPublishedEvent()
     Assert.Equal(doc.Id, publishedEvent.DocumentId);
 }
 
-// -- Integration Test - dùng Testcontainers
+// -- Integration Test - uses Testcontainers
 public class CreateDocumentTests : IAsyncLifetime
 {
     private PostgreSqlContainer _postgres = null!;
