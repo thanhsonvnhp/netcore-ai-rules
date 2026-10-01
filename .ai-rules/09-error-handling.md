@@ -4,41 +4,41 @@
 
 ## Error Strategy: Result Pattern First
 
-Dự án dùng **Result Pattern** (thư mục `Common/` hoặc shared library nếu modular - ví dụ `{Company}.BuildingBlock.Domain.Shared`) làm primary error handling mechanism. Exception chỉ dùng cho unhandled/system errors.
+The project uses the **Result Pattern** (a `Common/` folder, or a shared library when modular - for example `{Company}.BuildingBlock.Domain.Shared`) as the primary error handling mechanism. Exceptions are only for unhandled/system errors.
 
 ```
-[OK] Command Handler -> return Result<T>.Failure(error)   // hoặc implicit từ Error   // TẤT CẢ LỖI LOGIC TRONG Application CHỈ DÙNG `Error.Failure`
+[OK] Command Handler -> return Result<T>.Failure(error)   // or implicit from Error   // ALL LOGIC ERRORS IN Application USE `Error.Failure` ONLY
 [OK] Query Handler -> return ProductErrors.NotFound
-[OK] Validator (FluentValidation) -> ValidationBehavior trả Result.Failure(Error.Validation(...)).
+[OK] Validator (FluentValidation) -> ValidationBehavior returns Result.Failure(Error.Validation(...)).
 [OK] Domain Entity Factory -> return Result<T>.Failure(domainError)
-[FAIL] KHÔNG dùng exception cho business rule violations
+[FAIL] Do NOT use exceptions for business rule violations
 ```
 
-**GlobalExceptionHandler** (IExceptionHandler) chỉ catch:
+**GlobalExceptionHandler** (`IExceptionHandler`) only catches:
 
 - Unhandled exceptions (bugs, null refs, external failures)
-- KHÔNG catch Result failures - chúng được handle ở Controller qua `result.ToApiResponse()` (hoặc error.ToApiResponse()).
+- It does NOT catch Result failures - those are handled in the Controller via `result.ToApiResponse()` (or `error.ToApiResponse()`).
 
-Xem `GlobalExceptionHandler.cs` trong Api/Middleware.
+See `GlobalExceptionHandler.cs` in Api/Middleware.
 
 ---
 
 ## Result Pattern Types
 
 ```
-Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared library)
---- Result.cs          # IsSuccess, IsFailure, Error ; có guard + implicit operator từ Error
+Common/ (or `{Company}.BuildingBlock.Domain.Shared` when split into a shared library)
+--- Result.cs          # IsSuccess, IsFailure, Error ; has a guard + an implicit operator from Error
 --- ResultT.cs         # Result<T> : Value
 --- Error.cs           # readonly record struct Error(string Code, string Description, ErrorType Type)
 |                      # static: None, Failure(code,desc), Validation(...), NotFound(...), Conflict(...), Unauthorized(...)
---- ErrorType.cs       # enum Failure | Validation | NotFound | Conflict | Unauthorized (thêm Forbidden/ServiceUnavailable nếu dự án cần)
+--- ErrorType.cs       # enum Failure | Validation | NotFound | Conflict | Unauthorized (add Forbidden/ServiceUnavailable if the project needs them)
 ```
 
 ---
 
 ## DO
 
-1. **Dùng Result Pattern** cho mọi handler:
+1. **Use the Result Pattern** in every handler:
 
    ```csharp
    public async ValueTask<Result> Handle(DeleteDocumentCommand cmd, CancellationToken ct)
@@ -50,7 +50,7 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
    }
    ```
 
-2. **Định nghĩa predefined errors** trong Domain:
+2. **Define predefined errors** in Domain:
 
    ```csharp
    public static class DocumentErrors
@@ -69,23 +69,23 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
    }
    ```
 
-3. **Map Error.Type sang HTTP status** trong `ResultExtensions` (Api layer):
+3. **Map `Error.Type` to an HTTP status** in `ResultExtensions` (Api layer):
 
-   | ErrorType | HTTP Status | Ghi chú |
+   | ErrorType | HTTP Status | Note |
    |---|---|---|
    | `NotFound` | 404 | |
-   | `Validation` | 400 BadRequest (+ ValidationProblemDetails) | Business validation từ Result hoặc FV |
+   | `Validation` | 400 BadRequest (+ ValidationProblemDetails) | Business validation from Result or FluentValidation |
    | `Conflict` | 409 | |
    | `Unauthorized` | 401 | |
    | `Failure` (default) | 500 | |
 
-   (Business validation map sang 400, không dùng 422 - chọn một và giữ nhất quán toàn dự án.)
+   (Business validation maps to 400, not 422 - pick one and stay consistent across the whole project.)
 
    **Error code style**:
-   - `Error.Code`: "Module.Entity.Reason" (ví dụ "Document.NotFound") - được đưa vào ProblemDetails `extensions["errorCode"]` + ValidationProblemDetails key.
-   - Mã lỗi public trả cho client: UPPER_SNAKE_CASE có nghĩa (RESOURCE_NOT_FOUND, VALIDATION_ERROR, IDEMPOTENCY_KEY_CONFLICT, TOKEN_EXPIRED...) - xem `04-api-contract.md`. Nếu dự án có danh mục mã lỗi tập trung (BA/API spec), ưu tiên dùng mã từ danh mục đó; giữ consistency với Error factories trong Domain.
+   - `Error.Code`: `"Module.Entity.Reason"` (for example `"Document.NotFound"`) - placed into the ProblemDetails `extensions["errorCode"]` + the ValidationProblemDetails key.
+   - Public error code returned to the client: meaningful UPPER_SNAKE_CASE (`RESOURCE_NOT_FOUND`, `VALIDATION_ERROR`, `IDEMPOTENCY_KEY_CONFLICT`, `TOKEN_EXPIRED`...) - see `04-api-contract.md`. When the project has a centralized error code catalog (BA/API spec), prefer codes from that catalog and keep them consistent with the Error factories in Domain.
 
-   Body response ví dụ:
+   Example response body:
 
    ```json
    {
@@ -102,32 +102,32 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
    }
    ```
 
-4. **GlobalExceptionHandler** chỉ catch thật sự exceptions (xem Middleware/GlobalExceptionHandler.cs):
+4. **GlobalExceptionHandler** only catches real exceptions (see Middleware/GlobalExceptionHandler.cs):
 
    ```csharp
    public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
    {
        _logger.LogError(ex, "Unhandled exception occurred");
-       // Trả 500 ProblemDetails (detail chỉ ở Development)
+       // Return a 500 ProblemDetails (detail only in Development)
        ...
    }
    ```
 
-5. **Validation failures (FluentValidation qua ValidationBehavior)** và business Result.Validation đều đi qua mapping trả 400.
+5. **Validation failures** (FluentValidation via ValidationBehavior) and business `Result.Validation` both go through the mapping that returns 400.
 
 ## DON'T
 
-1. **KHÔNG** dùng exception cho business rule violations:
+1. Do **NOT** use exceptions for business rule violations:
 
    ```csharp
-   // [FAIL] WRONG - dùng exception cho business rule
+   // [FAIL] WRONG - an exception for a business rule
    if (!doc.CanPublish()) throw new DocumentAlreadyPublishedException(doc.Id);
-   // [OK] CORRECT - dùng Result pattern
+   // [OK] CORRECT - the Result pattern
    var result = doc.Publish(publishedBy);
    if (result.IsFailure) return result;
    ```
 
-2. **KHÔNG** throw generic `Exception` hay `ApplicationException`:
+2. Do **NOT** throw a generic `Exception` or `ApplicationException`:
 
    ```csharp
    // [FAIL] WRONG
@@ -136,11 +136,11 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
    return DocumentErrors.NotFound;
    ```
 
-3. **KHÔNG** log exception nhiều lần trong cùng call stack (log once tại middleware).
+3. Do **NOT** log the same exception multiple times along the same call stack (log once, at the middleware).
 
-4. **KHÔNG** expose stack trace, inner exception details ra response body ở production.
+4. Do **NOT** expose stack traces or inner exception details in the response body in production.
 
-5. **KHÔNG** dùng exception để điều khiển control flow:
+5. Do **NOT** use exceptions for control flow:
 
    ```csharp
    // [FAIL] WRONG
@@ -150,15 +150,15 @@ Common/ (hoặc `{Company}.BuildingBlock.Domain.Shared` nếu tách shared libra
    var result = await _queryHandler.Handle(new GetDocumentByIdQuery(id), ct);
    ```
 
-6. **KHÔNG** catch `OperationCanceledException` và log như Error - đây là hành vi bình thường khi client disconnect.
+6. Do **NOT** catch `OperationCanceledException` and log it as an Error - that is normal behavior when a client disconnects.
 
-7. **KHÔNG** dùng Exception hierarchy (DomainException, NotFoundException) cho business errors - dùng `Error` static constants.
+7. Do **NOT** use an exception hierarchy (DomainException, NotFoundException) for business errors - use static `Error` constants.
 
-## Ví dụ minh họa
+## Illustrative example
 
 ```csharp
-// -- {Company}.BuildingBlock.Domain.Shared.Common.Error (thực tế)
-namespace Common;  // ví dụ: {Company}.BuildingBlock.Domain.Shared.Common nếu tách shared
+// -- {Company}.BuildingBlock.Domain.Shared.Common.Error (actual)
+namespace Common;  // for example: {Company}.BuildingBlock.Domain.Shared.Common when split into shared
 
 
 /// <summary>
@@ -230,8 +230,8 @@ public readonly record struct Error(string Code, string Description, ErrorType T
         new(code, description, ErrorType.Forbidden);
 }
 
-// -- {Company}.BuildingBlock.Domain.Shared.Common.Result (thực tế, có guard)
-namespace Common;  // ví dụ: {Company}.BuildingBlock.Domain.Shared.Common nếu tách shared
+// -- {Company}.BuildingBlock.Domain.Shared.Common.Result (actual, with a guard)
+namespace Common;  // for example: {Company}.BuildingBlock.Domain.Shared.Common when split into shared
 
 public class Result
 {
@@ -336,7 +336,7 @@ public sealed class Product : AggregateRoot<ProductId>
 public static class ResultExtensions
 {
     public static IActionResult ToApiResponse<T>(this Result<T> result) { ... }
-    // switch ErrorType -> NotFoundObjectResult(404), BadRequestObjectResult + ValidationProblemDetails(400) cho Validation,
+    // switch ErrorType -> NotFoundObjectResult(404), BadRequestObjectResult + ValidationProblemDetails(400) for Validation,
     // Conflict(409), Unauthorized(401), default 500 ProblemDetails
 }
 
@@ -352,7 +352,7 @@ internal sealed class CreateProductCommandHandler(...) : ICommandHandler<CreateP
     }
 }
 
-// -- GlobalExceptionHandler (chỉ unhandled)
+// -- GlobalExceptionHandler (unhandled only)
 internal sealed class GlobalExceptionHandler(...) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken ct)

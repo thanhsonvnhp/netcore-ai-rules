@@ -4,37 +4,38 @@
 
 ## Mediator Library
 
-Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `ICommand<T>` / `IQuery<T>` trong shared `Application.Shared.Abstractions.Messaging` (hoặc `{Company}.BuildingBlock.Application.Shared` nếu modular) (implement `IRequest<Result>` của Mediator).
-**KHÔNG dùng MediatR (Jimmy Bogard).**
+The project uses **Mediator** (a source generator) + local adapters `ICommand` / `ICommand<T>` / `IQuery<T>` in the shared `Application.Shared.Abstractions.Messaging` namespace (or `{Company}.BuildingBlock.Application.Shared` when modular), implementing Mediator's `IRequest<Result>`.
+
+Do **NOT use MediatR (Jimmy Bogard).**
 
 ---
 
 ## DO
 
-1. **Tổ chức registration theo LAYERED context** bằng extension methods:
+1. **Organize registration by LAYERED context** with extension methods:
 
    ```csharp
-   // Program.cs - chỉ gọi module-level extensions
+   // Program.cs - calls module-level extensions only
    builder.Services
        .AddApplicationSServices(builder.Configuration)
        .AddInfrastructure(builder.Configuration)
        .AddApiServices();
    ```
 
-2. **Mỗi layer tự đăng ký qua `IServiceCollection` extension** đặt trong layer đó:
+2. **Each layer registers itself** through an `IServiceCollection` extension living in that layer:
    - `Application/DependencyInjection.cs` -> `AddApplicationSServices()`
    - `Infrastructure/DependencyInjection.cs` -> `AddInfrastructure()`
    - `Api/DependencyInjection.cs` -> `AddApiServices()`
 
-3. **Chọn service lifetime đúng:**
+3. **Pick the right service lifetime:**
 
-   | Lifetime | Khi nào dùng | Ví dụ |
+   | Lifetime | Use when | Example |
    |---|---|---|
-   | `Singleton` | Stateless, thread-safe, khởi tạo tốn kém | `IMemoryCache`, config options |
-   | `Scoped` | Gắn với HTTP request, có trạng thái per-request | `DbContext`, `ICurrentUser`, `ITenantContext` |
-   | `Transient` | Lightweight, stateless, không share | Simple calculators, validators |
+   | `Singleton` | Stateless, thread-safe, expensive to initialize | `IMemoryCache`, config options |
+   | `Scoped` | Bound to an HTTP request, has per-request state | `DbContext`, `ICurrentUser`, `ITenantContext` |
+   | `Transient` | Lightweight, stateless, not shared | Simple calculators, validators |
 
-4. **Bật validation container ở startup** để phát hiện lỗi ngay:
+4. **Turn on container validation at startup** so misconfigurations surface immediately:
 
    ```csharp
    builder.Host.UseDefaultServiceProvider((ctx, opts) =>
@@ -44,7 +45,7 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    });
    ```
 
-5. **Register Mediator và FluentValidation theo assembly scan (thực tế):**
+5. **Register Mediator and FluentValidation by assembly scan (actual):**
 
    ```csharp
    services.AddMediator(options =>
@@ -55,18 +56,18 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
    services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-   services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));   // Scoped vì IValidator scoped
+   services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));   // Scoped because IValidator is scoped
    services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(IntegrationEventPublishBehavior<,>));
-   services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>)); // cho ICommand
+   services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>)); // for ICommand
 
    services.AddScoped<IIntegrationEventCollector, IntegrationEventCollector>();
    ```
 
-6. **Keyed Services** (.NET 8+) có thể dùng khi cần nhiều impl của cùng một interface.
+6. **Keyed Services** (.NET 8+) may be used when multiple implementations of one interface are needed.
 
 ## DON'T
 
-1. **KHÔNG** inject `IServiceProvider` vào constructor - đây là Service Locator anti-pattern:
+1. Do **NOT** inject `IServiceProvider` into a constructor - that is the Service Locator anti-pattern:
 
    ```csharp
    // [FAIL] WRONG
@@ -78,7 +79,7 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    public class MyService(IDocumentRepository repo) { }
    ```
 
-2. **KHÔNG** đăng ký `DbContext` là Singleton - gây lỗi nghiêm trọng trong concurrent environment:
+2. Do **NOT** register a `DbContext` as Singleton - it causes serious failures in concurrent environments:
 
    ```csharp
    // [FAIL] WRONG
@@ -87,7 +88,7 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    services.AddDbContext<AppDbContext>(options => ..., ServiceLifetime.Scoped);
    ```
 
-3. **KHÔNG** đăng ký concrete class trực tiếp mà không có interface - khóa chặt dependency, khó test:
+3. Do **NOT** register a concrete class directly without an interface - the dependency becomes locked in and hard to test:
 
    ```csharp
    // [FAIL] WRONG
@@ -96,23 +97,23 @@ Dự án dùng **Mediator** (source generator) + local adapters `ICommand` / `IC
    services.AddScoped<IDocumentService, DocumentService>();
    ```
 
-4. **KHÔNG** để `Program.cs` phình to với hàng trăm dòng registration - tách hết vào module extensions.
+4. Do **NOT** let `Program.cs` bloat with hundreds of registration lines - move everything into module extensions.
 
-5. **KHÔNG** inject Scoped service vào Singleton - gây captive dependency bug:
+5. Do **NOT** inject a Scoped service into a Singleton - it causes the captive dependency bug:
 
    ```csharp
-   // [FAIL] WRONG - DbContext (Scoped) inject vào Singleton -> lỗi
+   // [FAIL] WRONG - a Scoped DbContext injected into a Singleton -> broken
    public class CacheSingleton(AppDbContext db) { ... }
-   // [OK] CORRECT - dùng IServiceScopeFactory nếu cần tạo scope thủ công
+   // [OK] CORRECT - use IServiceScopeFactory when a manual scope is needed
    public class CacheSingleton(IServiceScopeFactory factory) { ... }
    ```
 
-6. **KHÔNG** dùng `new` trực tiếp để tạo service trong application code.
+6. Do **NOT** call `new` directly to create a service in application code.
 
-## Ví dụ minh họa
+## Illustrative example
 
 ```csharp
-// -- Program.cs (gọn)
+// -- Program.cs (lean)
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
@@ -137,7 +138,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(typeof(CreateDocumentCommand).Assembly);
 
         services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>)); // Scoped - must match IValidator's lifetime (see section 5 above)
 
         return services;
     }

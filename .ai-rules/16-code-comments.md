@@ -1,28 +1,30 @@
-# 16 - Quy tắc Comment Code
+# 16 - Code Comment Rules
 
-## Nguyên tắc chính
+## Main Principles
 
-- **Ngôn ngữ**: Tiếng Việt cho tất cả comment giải thích nghiệp vụ.
-- **Mục đích**: Comment giải thích **ý nghĩa nghiệp vụ** của hàm/block - không mô tả lại những gì code đã nói rõ bằng tên biến/hàm.
-- **Mức độ**: Comment ở cấp hàm hoặc block logic quan trọng, không comment từng dòng.
+- **Language**: comments that explain business logic use the project's output language (see Language Policy in `core/01-project-hard-rules.md` - the template default is Vietnamese).
+- **Purpose**: a comment explains the **business meaning** of a function/block - it does not restate what the code already says through variable/function names.
+- **Granularity**: comment at the function or significant-logic-block level, not line by line.
 
-## Khi nào cần comment
+## When to comment
 
-| Trường hợp | Ví dụ |
+| Case | Example |
 |---|---|
-| Hàm xử lý nghiệp vụ phức tạp | Command handler, domain method có nhiều điều kiện |
-| Business rule không hiển nhiên từ tên | Constraint, invariant ẩn, edge case đặc thù |
-| Workaround / limitation kỹ thuật | EF Core quirk, outbox pattern, integration contract |
-| Quyết định thiết kế cần giải thích | Tại sao không dùng cách A mà dùng cách B |
+| A function implements complex business logic | Command handler, a domain method with many conditions |
+| A business rule is not obvious from the name | A constraint, a hidden invariant, a specific edge case |
+| A technical workaround / limitation | An EF Core quirk, the outbox pattern, an integration contract |
+| A design decision needs explaining | Why approach B was chosen over approach A |
 
-## Khi nào KHÔNG comment
+## When NOT to comment
 
-- Tên hàm/property đã nói rõ mục đích (`GetStaffById`, `IsLocked`, `CreateStaff`).
-- CRUD đơn giản không có logic nghiệp vụ đặc biệt.
-- Code đã có test mô tả hành vi đầy đủ.
-- Comment chỉ nhắc lại tên hàm theo cách khác.
+- The function/property name already states its purpose (`GetStaffById`, `IsLocked`, `CreateStaff`).
+- Simple CRUD with no special business logic.
+- The behavior is already fully described by a test.
+- The comment only restates the function name in different words.
 
 ## Format
+
+The example below uses Vietnamese because that is this template's default output language - replace it with the project's configured output language.
 
 ```csharp
 /// <summary>
@@ -41,17 +43,17 @@ public Result Lock()
 var defaultAssignment = assignments.FirstOrDefault(a => a.IsDefault);
 ```
 
-## Không viết
+## Do not write
 
 ```csharp
-// Hàm này set IsLocked = true   <- mô tả lại code, vô nghĩa
-// TODO: fix later                <- không được để TODO không có ticket
+// Hàm này set IsLocked = true   <- restates the code, adds nothing
+// TODO: fix later                <- a TODO without a ticket is not allowed
 /// <summary>
 /// Gets the staff by identifier and returns the result.
-/// </summary>                    <- XML doc dài không có thêm thông tin
+/// </summary>                    <- a long XML doc that adds no information
 ```
 
-## Tóm tắt
+## Summary
 
-> Comment = **tại sao** hoặc **ý nghĩa nghiệp vụ**, không phải **làm gì**.  
-> Một dòng rõ ràng đủ - không viết block comment nhiều đoạn.
+> A comment states **why** or the **business meaning**, not **what the code does**.
+> One clear line is enough - do not write multi-paragraph block comments.

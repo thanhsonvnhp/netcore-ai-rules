@@ -1,10 +1,10 @@
 # 15 - Commit Change Log Rules
 
-> **Template:** Nếu dự án bật changelog policy, mọi commit có API/contract/DB/shared impact phải có changelog entry. Tắt policy bằng cách ghi rõ trong `core/01-project-hard-rules.md`.
+> **Template:** When the project enables the changelog policy, every commit with API/contract/DB/shared impact needs a changelog entry. Disable the policy by recording that explicitly in `core/01-project-hard-rules.md`.
 
-## Khi nào bắt buộc
+## When it is required
 
-Mọi thay đổi ảnh hưởng tới:
+Any change affecting:
 
 - API endpoint / request / response contract
 - Validation behavior
@@ -16,11 +16,11 @@ Mọi thay đổi ảnh hưởng tới:
 
 ## Format
 
-- Đường dẫn: `change-logs/YYYY/MM/YYYY-MM-DD.md` (append cuối file, không ghi đè).
-- Title chứa task ID (ví dụ `#JIRA-123`).
-- Commit changelog **cùng commit** với code.
+- Path: `change-logs/YYYY/MM/YYYY-MM-DD.md` (append at the end of the file, never overwrite).
+- The title contains the task ID (for example `#JIRA-123`).
+- Commit the changelog **in the same commit** as the code.
 
-## Template entry (fenced YAML)
+## Entry template (fenced YAML)
 
 ```yaml
 ---
@@ -28,7 +28,7 @@ date: YYYY-MM-DD
 task: "#JIRA-123"
 scope: api | db | contract | infra | shared
 summary: >
-  Mô tả ngắn gọn thay đổi.
+  Short description of the change, in the project's output language.
 files:
   - path/to/changed/file.cs
 breaking: false
@@ -37,7 +37,7 @@ breaking: false
 
 ## Checklist
 
-- [ ] Có entry trong `change-logs/YYYY/MM/YYYY-MM-DD.md` cho commit này?
-- [ ] Task ID xuất hiện trong title?
-- [ ] `breaking: true` nếu contract/DB change không backward-compatible?
-- [ ] Changelog commit cùng code (không để commit sau)?
+- [ ] Is there an entry in `change-logs/YYYY/MM/YYYY-MM-DD.md` for this commit?
+- [ ] Does the task ID appear in the title?
+- [ ] `breaking: true` set when the contract/DB change is not backward-compatible?
+- [ ] Is the changelog committed together with the code (not in a later commit)?

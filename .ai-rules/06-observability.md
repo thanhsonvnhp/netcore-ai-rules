@@ -1,8 +1,8 @@
 # 06 - Observability Rules
 
-> **Root concept**: OpenTelemetry là observability backbone. Mọi service emit logs, traces, metrics qua OTLP tới một collector, collector forward tới backend observability của dự án (Elastic APM, Grafana stack, Jaeger, Azure Monitor, Aspire Dashboard...). Dùng `Microsoft.Extensions.Logging` - nếu dự án muốn dùng Serilog thì ghi rõ vào `core/01-project-hard-rules.md`.
+> **Root concept**: OpenTelemetry is the observability backbone. Every service emits logs, traces, and metrics via OTLP to a collector, which forwards them to the project's observability backend (Elastic APM, the Grafana stack, Jaeger, Azure Monitor, Aspire Dashboard...). Use `Microsoft.Extensions.Logging` - if the project wants Serilog instead, record that explicitly in `core/01-project-hard-rules.md`.
 
-> **Template:** Thay `{Company}`, `{ServiceName}`, `{namespace}` bằng giá trị thực tế. Chọn **một** backend observability cho dự án và ghi vào file core.
+> **Template:** Replace `{Company}`, `{ServiceName}`, `{namespace}` with real values. Pick **one** observability backend for the project and record it in the core file.
 
 ---
 
@@ -10,7 +10,7 @@
 
 ```text
 +----------+   OTLP/gRPC    +-----------------+   exporter    +------------------+
-| APIs     | ---------------->| otel-collector  | -------------->| Backend của dự án |
+| APIs     | ---------------->| otel-collector  | -------------->| Project backend  |
 | (OTel    |   :4317         |                 |               | (Elastic APM /   |
 |  SDK)    |                 | pipeline:       |               |  Grafana+Tempo / |
 -----------+                 | traces/metrics/ |               |  Jaeger / Azure) |
@@ -26,29 +26,29 @@
                              -------------------+
 ```
 
-**Dashboard options** (chọn một cho local dev):
+**Dashboard options** (pick one for local dev):
 
-| Stack | Khi nào dùng |
+| Stack | When to use |
 | ------ | ------------ |
-| Full production-like backend (Elastic / Grafana) | Cần giống production; nặng RAM |
-| Aspire Dashboard | Local dev nhẹ; structured logs + traces + metrics trong một UI |
-| Jaeger / Tempo + Grafana | Trace-centric, gọn |
+| Full production-like backend (Elastic / Grafana) | Need production parity; heavy on RAM |
+| Aspire Dashboard | Lightweight local dev; structured logs + traces + metrics in one UI |
+| Jaeger / Tempo + Grafana | Trace-centric, lean |
 
-Cả hai expose standard OTLP ports (gRPC `:4317`, HTTP `:4318`). Switch bằng config `OpenTelemetry:OtlpEndpoint` trong `appsettings.Development.json`.
+Both expose standard OTLP ports (gRPC `:4317`, HTTP `:4318`). Switch via the `OpenTelemetry:OtlpEndpoint` config in `appsettings.Development.json`.
 
 ---
 
 ## Shared Observability Setup
 
-Gom cấu hình observability vào **một chỗ duy nhất** để mọi service/API dùng chung. Hình thức phụ thuộc kiến trúc dự án:
+Gather observability configuration into **one single place** that every service/API shares. The exact shape depends on the project's architecture:
 
-- **Modular / microservices** (có shared library): tách thành project riêng, ví dụ `src/BuildingBlocks/{Company}.BuildingBlock.Observability/` hoặc `src/Shared/`.
-- **Monolith** (một API duy nhất): KHÔNG cần project riêng. Đặt extension method trong thư mục `Infrastructure/Observability/` (hoặc `Common/`, `Shared/`) của chính solution - miễn là một điểm cấu hình duy nhất.
+- **Modular / microservices** (has a shared library): split it into its own project, for example `src/BuildingBlocks/{Company}.BuildingBlock.Observability/` or `src/Shared/`.
+- **Monolith** (a single API): a dedicated project is NOT needed. Put the extension method under `Infrastructure/Observability/` (or `Common/`, `Shared/`) in the solution itself - as long as there is one single configuration point.
 
 - **Key file**: `OpenTelemetryExtensions.cs`
-- **NuGet packages**: `OpenTelemetry.Extensions.Hosting`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`, instrumentation cho ASP.NET Core, HTTP, EF Core, cache client, Runtime
+- **NuGet packages**: `OpenTelemetry.Extensions.Hosting`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`, instrumentation for ASP.NET Core, HTTP, EF Core, the cache client, Runtime
 
-Mọi entry point gọi cùng extension methods lúc startup:
+Every entry point calls the same extension methods at startup:
 
 ```csharp
 // Program.cs
@@ -56,47 +56,47 @@ builder.ConfigureOtelLog();              // Logs -> OTLP
 builder.AddOtelTracingAndMetrics();      // Traces + Metrics -> OTLP
 ```
 
-**Exporter modes** (config qua `OpenTelemetry:Exporter` trong `appsettings.json`):
+**Exporter modes** (configured via `OpenTelemetry:Exporter` in `appsettings.json`):
 
 | Value | Behavior |
 | ------ | ---------- |
 | `"otlp"` | Full telemetry: ASP.NET Core, HttpClient, EF Core, cache, Runtime -> OTLP endpoint |
-| `"console"` | Traces + metrics ra console; tiện debug local |
-| `"none"` | Không exporter; tắt telemetry |
+| `"console"` | Traces + metrics printed to the console; handy for local debugging |
+| `"none"` | No exporter; telemetry disabled |
 
 ---
 
 ## DO
 
-1. **Structured logging với `Microsoft.Extensions.Logging`** - `LoggingBehavior` pipeline là ví dụ chuẩn:
+1. **Structured logging with `Microsoft.Extensions.Logging`** - the `LoggingBehavior` pipeline is the standard example:
 
    ```csharp
-   // LoggingBehavior.cs - active ở mọi service qua Mediator pipeline
+   // LoggingBehavior.cs - active in every service through the Mediator pipeline
    _logger.LogInformation("Handling {RequestName}", typeof(TRequest).Name);
    _logger.LogInformation("Handled {RequestName} in {ElapsedMs}ms", typeof(TRequest).Name, elapsedMs);
    ```
 
-   Luôn dùng named placeholder (`{DocumentId}`, không phải `{0}`) để query structured ở backend observability.
+   Always use a named placeholder (`{DocumentId}`, never `{0}`) so the observability backend can query structured fields.
 
-2. **Log đúng level**:
+2. **Log at the right level**:
 
-   - `Debug` / `Trace` - diagnostic chi tiết; không ở hot path production
-   - `Information` - business event quan trọng (document published, user logged in, workflow transitioned)
-   - `Warning` - retry triggered, circuit breaker opened, degraded dependency, slow handler (>500 ms)
-   - `Error` - chỉ unhandled exception (bắt ở `GlobalExceptionHandler`); không dùng cho business rule violation
-   - `Critical` - data loss, infrastructure failure không phục hồi
+   - `Debug` / `Trace` - detailed diagnostics; never on a production hot path
+   - `Information` - a significant business event (document published, user logged in, workflow transitioned)
+   - `Warning` - a retry fired, a circuit breaker opened, a degraded dependency, a slow handler (>500 ms)
+   - `Error` - unhandled exceptions only (caught in `GlobalExceptionHandler`); never for a business rule violation
+   - `Critical` - data loss, an unrecoverable infrastructure failure
 
-3. **Include `traceId` trong mọi API error response**:
+3. **Include `traceId` in every API error response**:
 
    ```csharp
-   // Program.cs hoặc GlobalExceptionHandler.cs
+   // Program.cs or GlobalExceptionHandler.cs
    ctx.ProblemDetails.Extensions["traceId"] = ctx.HttpContext.TraceIdentifier;
    ctx.ProblemDetails.Extensions["timestamp"] = DateTime.UtcNow;
    ```
 
-   Mọi service phải theo pattern này - `traceId` giúp user correlate error response với trace ở backend.
+   Every service must follow this pattern - `traceId` lets a user correlate an error response with a trace in the backend.
 
-4. **Health checks live/ready split**:
+4. **Split health checks into live/ready**:
 
    ```csharp
    builder.Services.AddHealthChecks()
@@ -110,49 +110,49 @@ builder.AddOtelTracingAndMetrics();      // Traces + Metrics -> OTLP
        new() { Predicate = r => r.Tags.Contains("ready") });
    ```
 
-   - `/health/live` - process đang chạy? (lightweight, không external dep)
-   - `/health/ready` - service xử lý được request? (DB/cache phải reachable)
+   - `/health/live` - is the process running? (lightweight, no external dependency)
+   - `/health/ready` - can the service handle a request? (DB/cache must be reachable)
 
-   Thêm health check package tương ứng với database/cache dự án dùng (ví dụ `AspNetCore.HealthChecks.NpgSql`, `AspNetCore.HealthChecks.Redis`, `AspNetCore.HealthChecks.SqlServer`).
+   Add the health check package matching the project's database/cache (for example `AspNetCore.HealthChecks.NpgSql`, `AspNetCore.HealthChecks.Redis`, `AspNetCore.HealthChecks.SqlServer`).
 
-5. **Tách audit log khỏi technical log**:
+5. **Keep audit logs separate from technical logs**:
 
-   - **Technical logs** (traces, metrics, handler duration) -> OTel pipeline -> backend observability
-   - **Audit records** (ai làm gì, login attempt, data mutation) -> bảng trong database (`LoginAudit`, audit columns trên entity)
+   - **Technical logs** (traces, metrics, handler duration) -> the OTel pipeline -> the observability backend
+   - **Audit records** (who did what, login attempts, data mutations) -> a database table (`LoginAudit`, audit columns on the entity)
 
-   Không trộn hai stream. Audit interceptor set audit columns; dữ liệu audit nằm trong DB, không trong log file.
+   Never mix the two streams. The audit interceptor sets the audit columns; audit data lives in the DB, not in a log file.
 
-6. **Enrich OTel `Resource` với service identity**:
+6. **Enrich the OTel `Resource` with service identity**:
 
    ```csharp
    ResourceBuilder.CreateDefault()
        .AddService(serviceName: serviceName, serviceVersion: serviceVersion)
        .AddAttributes(new Dictionary<string, object>
        {
-           ["service.namespace"] = "{namespace}",           // ví dụ: tên team/sản phẩm
+           ["service.namespace"] = "{namespace}",           // for example: team/product name
            ["deployment.environment"] = environment.EnvironmentName.ToLowerInvariant(),
            ["deployment.instance-id"] = Environment.MachineName,
        });
    ```
 
-   Mỗi service set tên riêng qua `OpenTelemetry:ServiceName` trong `appsettings.json` (ví dụ `identity-api`, `{Company}.{Module}.Api`).
+   Each service sets its own name via `OpenTelemetry:ServiceName` in `appsettings.json` (for example `identity-api`, `{Company}.{Module}.Api`).
 
-7. **Wire database provider OpenTelemetry**:
+7. **Wire up the database provider's OpenTelemetry**:
 
-   Nếu dùng Npgsql:
+   With Npgsql:
 
    ```csharp
    var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
-   dataSourceBuilder.UseOpenTelemetry();   // từ package Npgsql.OpenTelemetry
+   dataSourceBuilder.UseOpenTelemetry();   // from the Npgsql.OpenTelemetry package
    var dataSource = dataSourceBuilder.Build();
    builder.Services.AddSingleton<DbDataSource>(dataSource);
    ```
 
-   Provider khác (SQL Server, MySQL) dùng instrumentation OTel tương ứng. Mọi service dùng shared persistence setup sẽ tự có command execution spans.
+   For a different provider (SQL Server, MySQL), use its matching OTel instrumentation. Any service using the shared persistence setup gets command execution spans automatically.
 
-8. **Wire messaging OpenTelemetry khi bật messaging**:
+8. **Wire up messaging OpenTelemetry when messaging is enabled**:
 
-   Khi messaging enabled, thêm instrumentation cho bus đang dùng, ví dụ MassTransit:
+   When messaging is enabled, add instrumentation for the bus in use, for example MassTransit:
 
    ```csharp
    busConfig.UsingRabbitMq((ctx, cfg) =>
@@ -161,15 +161,15 @@ builder.AddOtelTracingAndMetrics();      // Traces + Metrics -> OTLP
    });
    ```
 
-   Thêm source name của bus vào trace sources trong `AddOtelTracingAndMetrics`.
+   Add the bus's source name to the trace sources in `AddOtelTracingAndMetrics`.
 
 ---
 
 ## DON'T
 
-1. **Không** dùng `Console.WriteLine` / `Debug.WriteLine` trong production code path. Mọi output qua `ILogger<T>` hoặc OTel API.
+1. Do **NOT** use `Console.WriteLine` / `Debug.WriteLine` on a production code path. Every output goes through `ILogger<T>` or the OTel API.
 
-2. **Không** log sensitive data - password, JWT token, secret key, nội dung tài liệu, full payload file:
+2. Do **NOT** log sensitive data - passwords, JWT tokens, secret keys, document content, full file payloads:
 
    ```csharp
    // WRONG
@@ -179,19 +179,19 @@ builder.AddOtelTracingAndMetrics();      // Traces + Metrics -> OTLP
    _logger.LogInformation("User {UserId} authenticated successfully", userId);
    ```
 
-   Chi log metadata: `documentId`, `userId`, `action`, `correlationId` (+ `tenantId`/`workspaceId` chỉ khi dự án có multi-tenant/workspace).
+   Log metadata only: `documentId`, `userId`, `action`, `correlationId` (+ `tenantId`/`workspaceId` only when the project has multi-tenant/workspace).
 
-3. **Không** log level `Information` ở hot path (mỗi HTTP request, mỗi DB query). Dùng `Debug`/`Trace` cho event ồn.
+3. Do **NOT** log at `Information` level on a hot path (every HTTP request, every DB query). Use `Debug`/`Trace` for noisy events.
 
-4. **Không** để `/health/ready` fail khi non-critical dependency down. Dùng `HealthStatus.Degraded` cho optional dependency.
+4. Do **NOT** let `/health/ready` fail when a non-critical dependency is down. Use `HealthStatus.Degraded` for an optional dependency.
 
-5. **Không** trộn audit log với technical log. Audit records nằm trong bảng database - không trong OTel/log pipeline.
+5. Do **NOT** mix audit logs with technical logs. Audit records live in a database table - not in the OTel/log pipeline.
 
-6. **Không** dùng exception cho business rule violation - đi qua `Result` pattern (xem `09-error-handling.md`).
+6. Do **NOT** use exceptions for business rule violations - go through the `Result` pattern (see `09-error-handling.md`).
 
-7. **Không** log `OperationCanceledException` như error - client disconnect là bình thường.
+7. Do **NOT** log an `OperationCanceledException` as an error - a client disconnect is normal.
 
-8. **Không** thêm nhiều logging framework song song. Chọn một (mặc định template: `Microsoft.Extensions.Logging` + OTel pipeline) và ghi rõ vào file core.
+8. Do **NOT** add multiple logging frameworks side by side. Pick one (this template's default: `Microsoft.Extensions.Logging` + the OTel pipeline) and record it in the core file.
 
 ---
 
@@ -211,27 +211,27 @@ builder.AddOtelTracingAndMetrics();      // Traces + Metrics -> OTLP
 
 | Key | Purpose | Default |
 | ---- | ------- | ------- |
-| `ServiceName` | Định danh service trong traces/logs/metrics | `"{ProjectName}-api"` |
-| `OtlpEndpoint` | gRPC endpoint cho collector hoặc dashboard local | (rỗng -> OTLP exporter disabled) |
-| `Exporter` | `"otlp"`, `"console"`, hoặc `"none"` | `"otlp"` |
+| `ServiceName` | Identifies the service in traces/logs/metrics | `"{ProjectName}-api"` |
+| `OtlpEndpoint` | gRPC endpoint for the collector or a local dashboard | (empty -> the OTLP exporter is disabled) |
+| `Exporter` | `"otlp"`, `"console"`, or `"none"` | `"otlp"` |
 
 Environment variable overrides: `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
 ### Collector Configuration
 
-`otel-collector-config.yaml` định nghĩa pipeline:
+`otel-collector-config.yaml` defines the pipeline:
 
-- **Receivers**: OTLP gRPC `:4317` và HTTP `:4318`
+- **Receivers**: OTLP gRPC `:4317` and HTTP `:4318`
 - **Processors**: memory limiter, resource enrichment (`deployment.environment`, `service.namespace={namespace}`), batching
-- **Exporters**: backend observability của dự án + debug (console) cho local
-- **Health**: health check riêng của collector (`:13133`)
+- **Exporters**: the project's observability backend + a debug (console) exporter for local dev
+- **Health**: the collector's own health check (`:13133`)
 
-Ở production: bỏ `debug` exporter và bật TLS cho endpoint.
+In production: drop the `debug` exporter and enable TLS for the endpoint.
 
 ---
 
 ## Related Rules
 
 - [05-resilience.md](05-resilience.md) - retry/circuit-breaker observability
-- [09-error-handling.md](09-error-handling.md) - exception logging trong `GlobalExceptionHandler`
+- [09-error-handling.md](09-error-handling.md) - exception logging in `GlobalExceptionHandler`
 - [13-background-jobs.md](13-background-jobs.md) - outbox processing observability

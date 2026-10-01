@@ -4,10 +4,10 @@
 
 ## DO
 
-1. **Dùng Options Pattern** khi có thể (JwtOptions, EventBus options, caching...). 
- Các cấu hình chỉ đọc một lần khi startup có thể cho phép đọc trực tiếp từ IConfiguration.
+1. **Use the Options Pattern** whenever possible (JwtOptions, EventBus options, caching...).
+   Configuration read once at startup may be read directly from `IConfiguration` when that is simpler.
 
-2. **Validate tại startup** (recommended):
+2. **Validate at startup** (recommended):
 
    ```csharp
    services.AddOptions<JwtOptions>()
@@ -16,11 +16,11 @@
        .ValidateOnStart();
    ```
 
-3. **Cấu trúc appsettings theo section rõ ràng** (Database, Redis, Jwt, EventBus:*, OpenTelemetry:...).
+3. **Structure appsettings into clear sections** (Database, Redis, Jwt, EventBus:*, OpenTelemetry:...).
 
-4. **Phân tách môi trường**: appsettings.json (safe), .Development.json (không commit secrets thật), user-secrets cho dev, Docker secrets / Vault cho prod.
+4. **Separate environments**: appsettings.json (safe), .Development.json (never commit real secrets), user-secrets for dev, Docker secrets / Vault for prod.
 
-5. **Options class dùng Data Annotations để validate:**
+5. **Options classes use Data Annotations for validation:**
 
    ```csharp
    public class JwtOptions
@@ -34,7 +34,7 @@
    }
    ```
 
-6. **Feature flags** cho toggle tính năng không cần redeploy:
+6. **Feature flags** for toggling features without a redeploy:
 
    ```csharp
    public class FeatureFlags
@@ -48,7 +48,7 @@
 
 ## DON'T
 
-1. **KHÔNG** đọc `IConfiguration["Section:Key"]` trực tiếp trong business logic:
+1. Do **NOT** read `IConfiguration["Section:Key"]` directly in business logic:
 
    ```csharp
    // [FAIL] WRONG
@@ -57,29 +57,29 @@
    var connStr = _dbOptions.Value.ConnectionString;
    ```
 
-2. **KHÔNG** commit secrets, connection strings, API keys vào source code hay appsettings.json:
+2. Do **NOT** commit secrets, connection strings, or API keys into source code or appsettings.json:
 
    ```json
-   // [FAIL] WRONG - commit vào git
+   // [FAIL] WRONG - committed to git
    { "Jwt": { "SecretKey": "my-super-secret-key" } }
    ```
 
-   Dùng `dotnet user-secrets set "Jwt:SecretKey" "..."` khi phát triển.
+   Use `dotnet user-secrets set "Jwt:SecretKey" "..."` during development.
 
-3. **KHÔNG** bỏ qua `ValidateOnStart()` - nếu config thiếu/sai sẽ crash runtime thay vì startup.
+3. Do **NOT** skip `ValidateOnStart()` - missing/invalid config should crash at startup, not at runtime.
 
-4. **KHÔNG** inject `IConfiguration` vào Domain hoặc Application layer.
+4. Do **NOT** inject `IConfiguration` into the Domain or Application layer.
 
-5. **KHÔNG** dùng `string` constant trực tiếp để trỏ section name:
+5. Do **NOT** reference a section name with a raw `string` constant:
 
    ```csharp
-   // [FAIL] WRONG - dễ typo, không refactor được
+   // [FAIL] WRONG - typo-prone, cannot be refactored
    .BindConfiguration("Dtabase")
    // [OK] CORRECT
    .BindConfiguration(DatabaseOptions.SectionName)
    ```
 
-## Ví dụ minh họa
+## Illustrative example
 
 ```csharp
 // -- Infrastructure/Options/DatabaseOptions.cs
@@ -119,7 +119,7 @@ services.AddOptions<RabbitMqOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-// -- appsettings.json (safe - không có secrets)
+// -- appsettings.json (safe - no secrets)
 {
   "Database": {
     "MaxRetryCount": 3,
@@ -136,7 +136,7 @@ services.AddOptions<RabbitMqOptions>()
   }
 }
 
-// -- appsettings.Development.json (không commit ConnectionString thật)
+// -- appsettings.Development.json (never commit the real ConnectionString)
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Database={database}_dev;Username=postgres;Password=postgres"

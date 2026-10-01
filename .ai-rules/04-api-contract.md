@@ -343,7 +343,7 @@ General error response example( already includes project extensions):
     "success": false, 
     "code": 400, 
     "messageCode": "VALIDATION_ERROR",
-    "message": "Lỗi tham số", 
+    "message": "Invalid parameter.", 
     "data": null, 
     "errors": [
         { "key": "value" }, 

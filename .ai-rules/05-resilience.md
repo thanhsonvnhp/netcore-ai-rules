@@ -293,7 +293,7 @@ Allowed fallback types:
 
 ## Message Resilience
 
-Use EventBus configuration (ví dụ MassTransit) for message retry, delayed redelivery, outbox, and dead-letter handling.
+Use EventBus configuration (for example MassTransit) for message retry, delayed redelivery, outbox, and dead-letter handling.
 
 Rules:
 

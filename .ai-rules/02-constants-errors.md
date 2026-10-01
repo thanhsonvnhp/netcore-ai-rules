@@ -1,40 +1,40 @@
 # 02 - Constants & Error Codes Centralization Rules
 
-> **Root concept**: Mọi hằng số và mã lỗi phải được khai báo tập trung trong **2 file duy nhất mỗi module** (`ErrorCode.cs` và `Constants.cs`) tại Application layer. **KHÔNG** dùng magic number/string rải rác trong code.
+> **Root concept**: Every constant and error code must be declared centrally in **exactly 2 files per module** (`ErrorCodes.cs` and `Constants.cs`) in the Application layer. **NEVER** scatter magic numbers/strings through the code.
 
 ---
 
-## Cấu trúc thư mục
+## Folder structure
 
-Mỗi module có **đúng 2 file** chứa toàn bộ error codes và constants của **tất cả Aggregate** trong module đó:
+Each module has **exactly 2 files** holding all error codes and constants for **every Aggregate** in that module:
 
 ```
 src/Services/{Module}/
-  {Company}.{Module}.Domain/
+  {Company}.{Module}.Application/
     Constants/
-      ErrorCodes.cs      <- namespace {Company}.{Module}.Domain
-      Constants.cs      <- namespace {Company}.{Module}.Domain
+      ErrorCodes.cs      <- namespace {Company}.{Module}.Application
+      Constants.cs      <- namespace {Company}.{Module}.Application
 ```
 
-Ví dụ (module mẫu `Acme.Catalog` - thay bằng module thực tế của dự án):
+Example (sample module `Acme.Catalog` - replace with the project's real module):
 
 ```
 src/Services/Catalog/
-  Acme.Catalog.Domain/
+  Acme.Catalog.Application/
     Constants/
-      ErrorCodes.cs      <- namespace Acme.Catalog.Domain.Constants
-      Constants.cs      <- namespace Acme.Catalog.Domain.Constants
+      ErrorCodes.cs      <- namespace Acme.Catalog.Application.Constants
+      Constants.cs      <- namespace Acme.Catalog.Application.Constants
 ```
 
 ---
 
 ## DO
 
-1. **`ErrorCodes.cs` chứa toàn bộ error codes của module**, tổ chức thành nested static class theo từng Aggregate:
+1. **`ErrorCodes.cs` holds every error code in the module**, organized as a nested static class per Aggregate:
 
    ```csharp
-   // src/Services/Catalog/Acme.Catalog.Domain/Constants/ErrorCodes.cs
-   namespace Acme.Catalog.Domain;
+   // src/Services/Catalog/Acme.Catalog.Application/Constants/ErrorCodes.cs
+   namespace Acme.Catalog.Application;
 
    public static class ErrorCodes
    {
@@ -55,11 +55,13 @@ src/Services/Catalog/
    }
    ```
 
-2. **`Constants.cs` chứa toàn bộ business constants của module**, tổ chức thành nested static class theo từng Aggregate:
+   (The error messages above are in Vietnamese because that is this template's default output language - use the project's configured output language, see Language Policy in `core/01-project-hard-rules.md`.)
+
+2. **`Constants.cs` holds every business constant in the module**, organized as a nested static class per Aggregate:
 
    ```csharp
-   // src/Services/Catalog/Acme.Catalog.Domain/Constants/Constants.cs
-   namespace Acme.Catalog.Domain;
+   // src/Services/Catalog/Acme.Catalog.Application/Constants/Constants.cs
+   namespace Acme.Catalog.Application;
 
    public static class Constants
    {
@@ -92,7 +94,7 @@ src/Services/Catalog/
    }
    ```
 
-3. **Error code theo định dạng `"{AGGREGATE}_{UPPER_SNAKE_CASE_REASON}"`** - bắt buộc viết hoa toàn bộ, từ phân cách bằng `_`:
+3. **Error codes use the format `"{AGGREGATE}_{UPPER_SNAKE_CASE_REASON}"`** - all uppercase, words separated by `_`:
 
    ```
    "PRODUCT_NOT_FOUND"
@@ -100,7 +102,8 @@ src/Services/Catalog/
    "INVOICE_AMOUNT_EXCEEDS_LIMIT"
    "USER_EMAIL_DUPLICATED"
    ```
-**Constant theo định dạng `"{AGGREGATE}_{UPPER_SNAKE_CASE}"`** - bắt buộc viết hoa toàn bộ, từ phân cách bằng `_`.:
+
+**Constants use the format `"{AGGREGATE}_{UPPER_SNAKE_CASE}"`** - all uppercase, words separated by `_`:
 
    ```
    "NAME_MAX_LENGTH"
@@ -112,10 +115,10 @@ src/Services/Catalog/
    "MAX_QUANTITY_PER_ITEM"
    ```
 
-4. **Caller chỉ cần một `using` duy nhất** để truy cập toàn bộ errors và constants của module:
+4. **A caller needs only one `using`** to reach every error and constant in the module:
 
    ```csharp
-   using Acme.Catalog.Domain;
+   using Acme.Catalog.Application;
 
    // Error codes:
    return ErrorCodes.Product.NotFound;
@@ -125,10 +128,10 @@ src/Services/Catalog/
    .MaximumLength(Constants.Product.NameMaxLength);
    ```
 
-5. **Validator dùng constants và error codes từ 2 file tập trung**, không hardcode giá trị trực tiếp. **`.WithMessage()` và `.WithErrorCode()` phải trỏ vào `ErrorCodes.*`, tuyệt đối không được là string literal:**
+5. **Validators use the constants and error codes from the 2 centralized files**, never hardcoded values. **`.WithMessage()` and `.WithErrorCode()` must point to `ErrorCodes.*`, never a string literal:**
 
    ```csharp
-   using Acme.Catalog.Domain;
+   using Acme.Catalog.Application;
 
    // CORRECT
    RuleFor(x => x.Name)
@@ -137,18 +140,18 @@ src/Services/Catalog/
    RuleFor(x => x.Ids)
        .NotEmpty().WithMessage(ErrorCodes.FileSignature.ITEMS_EMPTY.Code);
 
-   // WRONG - hardcode string trong WithMessage
+   // WRONG - a hardcoded string in WithMessage
    RuleFor(x => x.Name).NotEmpty().WithMessage("Tên không được để trống.");
    RuleFor(x => x.Ids).NotEmpty().WithMessage("Danh sách không được rỗng.");
 
-   // WRONG - hardcode số trong MaximumLength
+   // WRONG - a hardcoded number in MaximumLength
    RuleFor(x => x.Name).MaximumLength(200);
    ```
 
-6. **EF Fluent Configuration Class dùng constants**, không hardcode:
+6. **An EF Fluent Configuration class uses constants**, never hardcoded values:
 
    ```csharp
-   using Acme.Catalog.Domain;
+   using Acme.Catalog.Application;
 
    // CORRECT
    builder.Property(p => p.Name)
@@ -160,10 +163,10 @@ src/Services/Catalog/
    builder.Property(p => p.Name).HasMaxLength(200);
    ```
 
-7. **Domain entity dùng constants khi validate**, không hardcode:
+7. **A Domain entity uses constants when validating**, never hardcoded values:
 
    ```csharp
-   using Acme.Catalog.Domain;
+   using Acme.Catalog.Application;
 
    public static Result<Product> Create(string name, decimal price)
    {
@@ -174,12 +177,13 @@ src/Services/Catalog/
    }
    ```
 
-8. Dùng **Error.Failure** khi lỗi logic trong Application. CHỈ DUY NHẤT Validation Pipeline dùng `Error.Validation`
+8. Use **`Error.Failure`** for logic errors in Application. The validation pipeline is the ONLY place that uses `Error.Validation`.
+
 ---
 
 ## DON'T
 
-1. **KHÔNG** inline `Error` tại nơi dùng:
+1. Do **NOT** inline an `Error` at the call site:
 
    ```csharp
    // WRONG
@@ -187,34 +191,34 @@ src/Services/Catalog/
    return Result.Failure("ERR_001");
    ```
 
-2. **KHÔNG** tạo nhiều file `*Errors.cs` hay `*Constants.cs` rải rác theo từng Aggregate - mỗi module chỉ có **đúng 2 file**:
+2. Do **NOT** create multiple scattered `*Errors.cs` or `*Constants.cs` files per Aggregate - each module has **exactly 2 files**:
 
    ```
-   // WRONG - rải rác theo Aggregate
+   // WRONG - scattered per Aggregate
    Constants/
      ProductErrors.cs
      OrderErrors.cs
      ProductConstants.cs
      OrderConstants.cs
 
-   // CORRECT - tập trung 2 file
+   // CORRECT - centralized in 2 files
    Constants/
-     ErrorCode.cs
+     ErrorCodes.cs
      Constants.cs
    ```
 
-3. **KHÔNG** đặt file `ErrorCode.cs` / `Constants.cs` ở layer Domain hay Infrastructure:
+3. Do **NOT** place `ErrorCodes.cs` / `Constants.cs` in the Domain or Infrastructure layer:
 
    ```
    // WRONG
-   Acme.Catalog.Domain/Constants/ErrorCode.cs
-   Acme.Catalog.Infrastructure/Constants/ErrorCode.cs
+   Acme.Catalog.Domain/Constants/ErrorCodes.cs
+   Acme.Catalog.Infrastructure/Constants/ErrorCodes.cs
 
    // CORRECT
-   Acme.Catalog.Application/Constants/ErrorCode.cs
+   Acme.Catalog.Application/Constants/ErrorCodes.cs
    ```
 
-4. **KHÔNG** dùng lowercase, PascalCase hay mixed format cho error code string:
+4. Do **NOT** use lowercase, PascalCase, or any mixed format for an error code string:
 
    ```csharp
    // WRONG
@@ -227,20 +231,20 @@ src/Services/Catalog/
    "PRODUCT_NOT_FOUND"
    ```
 
-5. **KHÔNG** khai báo `private const int X = 200;` tản mạn trong class - phải gom về `Constants.cs`.
+5. Do **NOT** declare scattered `private const int X = 200;` inside a class - move it into `Constants.cs`.
 
-6. **KHÔNG** dùng fully-qualified name tại nơi gọi - phải `using` namespace tập trung:
+6. Do **NOT** use a fully-qualified name at the call site - `using` the centralized namespace instead:
 
    ```csharp
    // WRONG
-   return Acme.Catalog.Application.Constants.ErrorCode.Product.NotFound;
+   return Acme.Catalog.Application.Constants.ErrorCodes.Product.NotFound;
 
    // CORRECT
    using Acme.Catalog.Application.Constants;
-   return ErrorCode.Product.NotFound;
+   return ErrorCodes.Product.NotFound;
    ```
 
-7. **KHÔNG** dùng string literal làm message ở bất kỳ đâu trong code - kể cả validator lẫn logic nghiệp vụ:
+7. Do **NOT** use a string literal as a message anywhere in the code - neither in a validator nor in business logic:
 
    ```csharp
    // WRONG - validator
@@ -250,20 +254,20 @@ src/Services/Catalog/
    return Result.Failure(Error.Failure("ERR", "File không tìm thấy."));
    if (!isValid) throw new Exception("Dữ liệu không hợp lệ.");
 
-   // CORRECT - tất cả message đều qua ErrorCodes.*
+   // CORRECT - every message goes through ErrorCodes.*
    RuleFor(x => x.Ids).NotEmpty().WithMessage(ErrorCodes.FileSignature.ITEMS_EMPTY.Code);
    return ErrorCodes.FileItem.NOT_FOUND;
    ```
 
 ---
 
-## Checklist AI agent khi sinh code
+## Checklist for the AI agent when generating code
 
-- [ ] Thêm error mới -> vào `{Company}.{Module}.Application/Constants/ErrorCode.cs`, nested class đúng Aggregate
-- [ ] Thêm constant mới -> vào `{Company}.{Module}.Application/Constants/Constants.cs`, nested class đúng Aggregate
-- [ ] Validator, EF Config, Domain method -> `using {Company}.{Module}.Application.Constants`, không hardcode
-- [ ] Error code string -> bắt buộc `UPPER_SNAKE_CASE`, pattern `"{AGGREGATE}_{REASON}"`
-- [ ] `.WithMessage()` trong validator -> phải là `ErrorCodes.X.Y.Code`, không phải string literal
-- [ ] `Result.Failure(...)` trong handler/domain -> phải dùng static constant từ `ErrorCodes.*`, không inline `Error.Failure("...", "...")`
-- [ ] Không có string message nào viết trực tiếp trong code logic - tất cả qua `ErrorCodes.*`
-- [ ] Không tạo file constants/errors mới ngoài 2 file quy định
+- [ ] New error -> add to `{Company}.{Module}.Application/Constants/ErrorCodes.cs`, in the nested class for the right Aggregate
+- [ ] New constant -> add to `{Company}.{Module}.Application/Constants/Constants.cs`, in the nested class for the right Aggregate
+- [ ] Validator, EF Config, Domain method -> `using {Company}.{Module}.Application.Constants`, never hardcode
+- [ ] Error code string -> must be `UPPER_SNAKE_CASE`, pattern `"{AGGREGATE}_{REASON}"`
+- [ ] `.WithMessage()` in a validator -> must be `ErrorCodes.X.Y.Code`, never a string literal
+- [ ] `Result.Failure(...)` in a handler/domain method -> must use a static constant from `ErrorCodes.*`, never inline `Error.Failure("...", "...")`
+- [ ] No message string written directly in logic code - all of them go through `ErrorCodes.*`
+- [ ] No new constants/errors file created outside the 2 designated files

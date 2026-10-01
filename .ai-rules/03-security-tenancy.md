@@ -8,7 +8,7 @@ This document defines security, authorization, tenant, workspace, and audit rule
 
 ## Current User Context
 
-Use `ICurrentUser` (abstraction trong Application, implement o Infrastructure) for authenticated user, tenant, and workspace context.
+Use `ICurrentUser` (an abstraction in Application, implemented in Infrastructure) for authenticated user, tenant, and workspace context.
 
 `ICurrentUser` is implemented by `CurrentUser` / `CurrentUserBase`.
 
@@ -68,11 +68,11 @@ Rules:
 
 ## Entity Tenancy
 
-Expose tenant and workspace context through `ICurrentUser` (chỉ khi dự án có multi-tenant/workspace).
+Expose tenant and workspace context through `ICurrentUser` (only when the project has multi-tenant/workspace).
 
-Tenant filtering không bắt buộc áp cho mọi entity - chỉ áp cho entity thực sự thuộc về tenant.
+Tenant filtering is not mandatory for every entity - apply it only to entities that actually belong to a tenant.
 
-Apply global soft-delete filtering through base DbContext (ví dụ `BaseAppDbContext`).
+Apply global soft-delete filtering through the base DbContext (for example `BaseAppDbContext`).
 
 Tenant filtering is module-specific.
 
@@ -281,7 +281,7 @@ Do not mix audit logs with technical logs.
 ## Related Components
 
 * `ICurrentUser` (for example `{Company}.Application.Abstractions.ICurrentUser` - use the project's real namespace)
-* `CurrentUser` / `CurrentUserBase` (implement trong Infrastructure)
+* `CurrentUser` / `CurrentUserBase` (implemented in Infrastructure)
 * The project's base DbContext (for example `BaseAppDbContext`)
 * `ConfigureEntityQueryFilter()`
 * `UpdateAuditableEntitiesInterceptor`
